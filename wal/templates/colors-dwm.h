@@ -1,0 +1,13 @@
+static const char black[] = "{color0}";
+static const char gray2[] = "{color0}";
+static const char gray3[] = "{color2}";
+static const char gray4[] = "{color2}";
+static const char blue[] = "{color3}";
+static const char green[] = "{color2}";
+static const char red[] = "{color1}";
+static const char orange[] = "{color3}";
+static const char yellow[] = "{color3}";
+static const char pink[] = "{color5}";
+static const char purple[] = "{color5}";
+static const char cyan[] = "{color6}";
+static const char col_borderbar[] = "{color0}";

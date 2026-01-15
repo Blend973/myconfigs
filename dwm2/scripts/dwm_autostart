@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+## Copyright (C) 2020-2024 Aditya Shakya <adi1090x@gmail.com>
+##
+## Autostart Programs
+
+# dwm dir
+ddir="/usr/share/archcraft/dwm"
+
+# Export desktop session
+export XDG_CURRENT_DESKTOP='dwm'
+
+# Kill already running process
+_ps=(xsettingsd ksuperkey)
+for _prs in "${_ps[@]}"; do
+  if [[ $(pidof ${_prs}) ]]; then
+    killall -9 ${_prs}
+  fi
+done
+
+# Lauch xsettingsd daemon
+xsettingsd --config="$ddir"/xsettingsd &
+
+# polkit agent
+if [[ ! $(pidof xfce-polkit) ]]; then
+  /usr/lib/xfce-polkit/xfce-polkit &
+fi
+
+# Enable power management
+# xfce4-power-manager &
+
+# Enable Super Keys For Menu
+ksuperkey -e 'Super_L=Alt_L|F1' &
+ksuperkey -e 'Super_R=Alt_L|F1' &
+
+# Fix cursor
+xsetroot -cursor_name left_ptr
+xset r rate 150 45
+# Restore wallpaper
+# hsetroot -cover "$ddir"/theme/wallpaper
+# feh --bg-scale /home/user/wallpapers/0001.jpg
+wal -R
+xrdb -merge /home/user/.Xresources
+
+# Launch notification daemon
+# "$ddir"/scripts/dwm_dunst
+
+# Launch simple status bar
+"$ddir"/scripts/dwm_bar &
+
+# Launch polybar
+#"$ddir"/scripts/dwm_polybar
+
+# Launch compositor
+# "$ddir"/scripts/dwm_comp
+
+# Start mpd
+# exec mpd &
+
+# Fix problems with Java apps
+wmname "LG3D"
+export _JAVA_AWT_WM_NONREPARENTING=1
+
+## Your autostart programs -----------------------
+
+## Add your autostart programs in ~/.dwm_autostart
+## Changes to this script will be overwritten on updates!
+
+if [[ -f "$HOME/.dwm_autostart" ]]; then
+  source "$HOME/.dwm_autostart"
+else
+  touch "$HOME/.dwm_autostart"
+  echo -e "# Example Autostart Programs\n\n#nm-applet --indicator & \n#blueman-applet &" >"$HOME/.dwm_autostart"
+fi
+
+## -----------------------------------------------
+
+# Launch DWM
+while
+  dwm
+  [ $? -ne 0 ]
+do echo "start dwm"; done

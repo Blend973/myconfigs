@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+## Load Colors once at startup
+XCOL=$(xrdb -query)
+C0=$(echo "$XCOL" | grep "\*.color0" | head -n 1 | cut -f 2- | tr -d " 	")
+C2=$(echo "$XCOL" | grep "\*.color2" | head -n 1 | cut -f 2- | tr -d " 	")
+C4=$(echo "$XCOL" | grep "\*.color4" | head -n 1 | cut -f 2- | tr -d " 	")
+
+# Fallbacks if xrdb fails
+C0=${C0:-#1e222a}
+C2=${C2:-#98c379}
+C4=${C4:-#61afef}
+
+while true; do
+  # Use Bash builtin for date/time (avoids calling /bin/date)
+  printf -v time_str "%(%a, %I:%M %p)T" -1
+
+  # Only one fork for brightness
+  light_val=$(light -G)
+  light_val=${light_val%%.*} # Bash string manipulation (avoids calling /bin/cut)
+
+  if [[ "$light_val" -le 25 ]]; then
+    b_icon=""
+  elif [[ "$light_val" -le 50 ]]; then
+    b_icon=""
+  elif [[ "$light_val" -le 75 ]]; then
+    b_icon=""
+  else b_icon=""; fi
+
+  # Update status bar (one fork)
+  xsetroot -name "^c$C2^ $b_icon $light_val ^c$C0^^b$C4^   ^c$C0^^b$C2^ $time_str "
+
+  # Sleep (one fork)
+  sleep 1
+done

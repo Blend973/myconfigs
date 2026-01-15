@@ -1,0 +1,182 @@
+/* Adwaita-inspired Pywal GTK3 Template */
+/* Sharp edges, fully opaque, dark utility backgrounds, and custom icon colors */
+
+@define-color theme_bg_color {background};
+@define-color theme_fg_color {foreground};
+@define-color theme_base_color {background};
+@define-color theme_text_color {foreground};
+@define-color theme_selected_bg_color {color4};
+@define-color theme_selected_fg_color {background};
+@define-color theme_tooltip_bg_color {color0};
+@define-color theme_tooltip_fg_color {foreground};
+
+/* Global - No Rounded Corners and No Transparency */
+* {{
+    border-radius: 0px !important;
+    outline-width: 0;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}}
+
+window, 
+.background {{
+    background-color: @theme_bg_color;
+    color: @theme_fg_color;
+}}
+
+/* Icons - Using the third color from the palette ({color2}) */
+image {{
+    color: {color2};
+}}
+
+/* Sidebars and List Views - Solid Dark */
+.sidebar, 
+.sidebar .view,
+stacksidebar row,
+.navigation-sidebar,
+.navigation-sidebar row {{
+    background-color: {color0};
+    color: @theme_fg_color;
+    border: none;
+}}
+
+.sidebar image,
+.navigation-sidebar image {{
+    color: {color2};
+}}
+
+.sidebar row:selected,
+.navigation-sidebar row:selected {{
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+}}
+
+.sidebar row:selected image,
+.navigation-sidebar row:selected image {{
+    color: @theme_selected_fg_color;
+}}
+
+/* Main View Area */
+.view {{
+    background-color: @theme_base_color;
+    color: @theme_text_color;
+}}
+
+.view:selected,
+.view:selected:focus {{
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+}}
+
+/* Header & Titlebar (Utilities) - Solid Dark */
+headerbar, 
+toolbar,
+.titlebar {{
+    background-color: {color0};
+    color: @theme_fg_color;
+    border-bottom: 1px solid shade({background}, 1.5);
+}}
+
+headerbar image,
+.titlebar image {{
+    color: {color2};
+}}
+
+headerbar button,
+.titlebar button {{
+    background-color: {color0};
+    border: 1px solid shade({color0}, 1.2);
+    color: @theme_fg_color;
+}}
+
+headerbar button:hover,
+.titlebar button:hover {{
+    background-color: shade({color0}, 1.5);
+}}
+
+/* Input Entries - Solid */
+entry {{
+    background-color: shade({background}, 0.7);
+    color: @theme_fg_color;
+    border: 1px solid shade({background}, 1.8);
+    padding: 4px;
+}}
+
+entry:focus {{
+    border-color: @theme_selected_bg_color;
+}}
+
+/* Buttons - Solid */
+button {{
+    background-color: shade({background}, 1.1);
+    border: 1px solid shade({background}, 1.8);
+    color: @theme_fg_color;
+}}
+
+button image {{
+    color: {color2};
+}}
+
+button:hover {{
+    background-color: shade({background}, 1.4);
+}}
+
+button:active,
+button:checked {{
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+}}
+
+button:active image,
+button:checked image {{
+    color: @theme_selected_fg_color;
+}}
+
+/* Menus & Popovers - Solid Dark */
+menu,
+popover,
+.menu,
+.context-menu,
+.dropdown {{
+    background-color: {color0};
+    border: 1px solid shade({background}, 2.0);
+    color: @theme_fg_color;
+}}
+
+menu image,
+popover image {{
+    color: {color2};
+}}
+
+menuitem:hover,
+.menu item:hover {{
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+}}
+
+menuitem:hover image,
+.menu item:hover image {{
+    color: @theme_selected_fg_color;
+}}
+
+/* Scrollbars - Opaque */
+scrollbar slider {{
+    background-color: shade({background}, 2.0);
+    min-width: 8px;
+    border: none;
+}}
+
+scrollbar slider:hover {{
+    background-color: @theme_selected_bg_color;
+}}
+
+scrollbar slider:active {{
+    background-color: @theme_selected_bg_color;
+}}
+
+/* Tooltips */
+tooltip {{
+    background-color: {color0};
+    color: @theme_fg_color;
+    border: 1px solid @theme_selected_bg_color;
+}}

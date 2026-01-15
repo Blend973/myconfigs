@@ -1,0 +1,38 @@
+{
+  "clients": {
+    "clangd": {
+      "command": [
+        "clangd",
+        "--background-index",
+        "--clang-tidy",
+        "--header-insertion=iwyu"
+      ],
+      "enabled": true,
+      "languageId": "cpp",
+      "scopes": ["source.c", "source.c++", "source.objc", "source.objc++"],
+    },
+    "rust-analyzer": {
+      "command": ["rust-analyzer"],
+      "enabled": true,
+      "languageId": "rust",
+      "scopes": ["source.rust"],
+    },
+    // "pyright": {
+    //   "command": ["pyright", "--stdio"],
+    //   "enabled": true,
+    //   "languageId": "python",
+    //   "scopes": ["source.python"],
+    // },
+    "ty": {
+      "command": ["ty", "server"],
+      "enabled": true,
+      "languageId": "python",
+      "scopes": ["source.python"],
+      "initializationOptions": {
+        "ty": {
+          "diagnosticMode": "openFilesOnly"
+        }
+      }
+    }
+  }
+}

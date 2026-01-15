@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+
+## Adapted for dmenu
+
+# Import Colors
+. "$HOME/.cache/wal/colors.sh"
+
+# Theme Elements
+status="`mpc status`"
+if [[ -z "$status" ]]; then
+	prompt='Offline'
+else
+	prompt="`mpc -f \"%artist%\" current`"
+fi
+
+# Options
+if [[ ${status} == *"[playing]"* ]]; then
+	option_1=" Pause"
+else
+	option_1=" Play"
+fi
+option_2=" Stop"
+option_3=" Previous"
+option_4=" Next"
+option_5=" Repeat"
+option_6=" Random"
+
+# Toggle Actions (Visual feedback limited in dmenu)
+if [[ ${status} == *"repeat: on"* ]]; then
+    option_5=" Repeat [ON]"
+elif [[ ${status} == *"repeat: off"* ]]; then
+    option_5=" Repeat [OFF]"
+fi
+
+if [[ ${status} == *"random: on"* ]]; then
+    option_6=" Random [ON]"
+elif [[ ${status} == *"random: off"* ]]; then
+    option_6=" Random [OFF]"
+fi
+
+# Theme settings
+FONT='Iosevka Nerd Font-14'
+NB="$color0"
+NF="$color15"
+SB="$color1"
+SF="$color15"
+
+# Dmenu CMD
+dmenu_cmd() {
+	dmenu \
+		-p "$prompt" \
+		-fn "$FONT" \
+		-nb "$NB" \
+		-nf "$NF" \
+		-sb "$SB" \
+		-sf "$SF"
+}
+
+# Pass variables to dmenu
+run_dmenu() {
+	echo -e "$option_1\n$option_2\n$option_3\n$option_4\n$option_5\n$option_6" | dmenu_cmd
+}
+
+# Execute Command
+run_cmd() {
+	if [[ "$1" == '--opt1' ]]; then
+		mpc -q toggle && kunst --size 60x60 --silent
+	elif [[ "$1" == '--opt2' ]]; then
+		mpc -q stop
+	elif [[ "$1" == '--opt3' ]]; then
+		mpc -q prev && kunst --size 60x60 --silent
+	elif [[ "$1" == '--opt4' ]]; then
+		mpc -q next && kunst --size 60x60 --silent
+	elif [[ "$1" == '--opt5' ]]; then
+		mpc -q repeat
+	elif [[ "$1" == '--opt6' ]]; then
+		mpc -q random
+	fi
+}
+
+# Actions
+chosen="$(run_dmenu)"
+case ${chosen} in
+    $option_1)
+		run_cmd --opt1
+        ;;
+    $option_2)
+		run_cmd --opt2
+        ;;
+    $option_3)
+		run_cmd --opt3
+        ;;
+    $option_4)
+		run_cmd --opt4
+        ;;
+    *"Repeat"*) 
+		run_cmd --opt5
+        ;;
+    *"Random"*) 
+		run_cmd --opt6
+        ;;
+esac
