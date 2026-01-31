@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+## Adapted for dmenu
+# Uses dmenu_run which lists binaries in $PATH
+# (Replacement for rofi run/runner)
+
+# Import Colors
+. "$HOME/.cache/wal/colors.sh"
+
+dmenu_run \
+  -p "Run" \
+  -fn 'Iosevka Nerd Font-14' \
+  -nb "$color0" \
+  -nf "$color15" \
+  -sb "$color2" \
+  -sf "$color15"

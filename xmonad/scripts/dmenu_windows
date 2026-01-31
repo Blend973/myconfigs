@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+## Adapted for dmenu
+# Requires wmctrl
+
+# Import Colors
+. "$HOME/.cache/wal/colors.sh"
+
+# Theme settings
+FONT='Iosevka Nerd Font-14'
+NB="$color0"
+NF="$color15"
+SB="$color1"
+SF="$color15"
+
+# List windows, pipe to dmenu, extract ID, activate window
+wmctrl -l | \
+    dmenu -p "Window" \
+    -fn "$FONT" \
+    -nb "$NB" \
+    -nf "$NF" \
+    -sb "$SB" \
+    -sf "$SF" -l 20 | \
+    awk '{print $1}' | \
+    xargs -r wmctrl -ia

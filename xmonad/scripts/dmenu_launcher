@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+## Adapted for dmenu to behave like rofi drun (Desktop Applications)
+
+# Import Colors
+. "$HOME/.cache/wal/colors.sh"
+
+# Theme settings
+FONT='Iosevka Nerd Font-14'
+NB="$color0"
+NF="$color15"
+SB="$color2"
+SF="$color15"
+
+# Cache file
+CACHE="$HOME/.cache/dmenu_apps"
+
+# Generate app list
+# Scans /usr/share/applications and ~/.local/share/applications
+PATHS="/usr/share/applications/*.desktop $HOME/.local/share/applications/*.desktop"
+
+# Generate list: Name|Exec
+# Using gawk for BEGINFILE/ENDFILE support
+awk '
+    BEGINFILE { 
+        in_entry=0; name=""; exec=""; nodisplay=0; terminal=0
+    }
+    /^\[Desktop Entry\]/ { in_entry=1; next }
+    /^\[/ { in_entry=0 }
+    in_entry && /^Name=/ { sub(/^Name=/, ""); name=$0 }
+    in_entry && /^Exec=/ { sub(/^Exec=/, ""); exec=$0 }
+    in_entry && /^NoDisplay=true/ { nodisplay=1 }
+    in_entry && /^Terminal=true/ { terminal=1 }
+    ENDFILE { 
+        if (name != "" && exec != "" && nodisplay == 0) {
+            # Clean exec field codes (like %u, %F)
+            gsub(/%[fFuUdiick]/, "", exec)
+            if (terminal == 1) {
+                exec = "kitty -e " exec
+            }
+            print name "|" exec
+        }
+    }
+' $PATHS 2>/dev/null | sort -u >"$CACHE"
+
+# Launch dmenu
+SELECTED=$(cut -d'|' -f1 "$CACHE" | dmenu -p "Apps" -fn "$FONT" -nb "$NB" -nf "$NF" -sb "$SB" -sf "$SF" -i)
+
+if [ -n "$SELECTED" ]; then
+  # Find command for selected app
+  CMD=$(grep -F "${SELECTED}|" "$CACHE" | head -n1 | cut -d'|' -f2-)
+
+  # Run in background
+  if [ -n "$CMD" ]; then
+    setsid /bin/sh -c "$CMD" >/dev/null 2>&1 &
+  fi
+fi

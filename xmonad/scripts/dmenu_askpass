@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# Import Colors
+. "$HOME/.cache/wal/colors.sh"
+
+# Theme settings
+FONT='Iosevka Nerd Font-14'
+NB="$color0"
+NF="$color15"
+SB="$color1"
+SF="$color15"
+
+# Dmenu text dialog to get password
+dmenu \
+  -p "Password: " \
+  -fn "$FONT" \
+  -nb "$NB" \
+  -nf "$NF" \
+  -sb "$SB" \
+  -sf "$SF"
