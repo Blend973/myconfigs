@@ -84,34 +84,34 @@
 
 # Get Volume
 get_volume() {
-  echo "$(pulsemixer --get-volume | cut -d' ' -f1)"
+  local vol=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print $2 * 100}')
+  echo "${vol%.*}"
 }
 
 # Increase Volume
 inc_volume() {
-  [[ $(pulsemixer --get-mute) == 1 ]] && pulsemixer --unmute
-  pulsemixer --max-volume 100 --change-volume +5
+  wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null
+  wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ 2>/dev/null
 }
 
 # Decrease Volume
 dec_volume() {
-  [[ $(pulsemixer --get-mute) == 1 ]] && pulsemixer --unmute
-  pulsemixer --max-volume 100 --change-volume -5
+  wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null
+  wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%- 2>/dev/null
 }
 
 # Toggle Mute
 toggle_mute() {
-  pulsemixer --toggle-mute
+  wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle 2>/dev/null
 }
 
 # Toggle Mic
 toggle_mic() {
-  ID="$(pulsemixer --list-sources | grep 'Default' | cut -d',' -f1 | cut -d' ' -f3)"
-  pulsemixer --id ${ID} --toggle-mute
+  wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle 2>/dev/null
 }
 
 # Execute accordingly
-if [[ -x $(which pulsemixer) ]]; then
+if [[ -x $(which wpctl) ]]; then
   if [[ "$1" == "--get" ]]; then
     get_volume
   elif [[ "$1" == "--inc" ]]; then
@@ -126,5 +126,5 @@ if [[ -x $(which pulsemixer) ]]; then
     echo "$(get_volume)%"
   fi
 else
-  echo "'pulsemixer' is not installed."
+  echo "'wpctl' is not installed."
 fi

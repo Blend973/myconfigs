@@ -2,14 +2,16 @@
 
 ## Load Colors once at startup
 XCOL=$(xrdb -query)
-C0=$(echo "$XCOL" | grep "\*.color0" | head -n 1 | cut -f 2- | tr -d " 	")
-C2=$(echo "$XCOL" | grep "\*.color2" | head -n 1 | cut -f 2- | tr -d " 	")
-C4=$(echo "$XCOL" | grep "\*.color4" | head -n 1 | cut -f 2- | tr -d " 	")
+C0=$(echo "$XCOL" | grep "\*.color0" | head -n 1 | cut -f 2- | tr -d "  ")
+C2=$(echo "$XCOL" | grep "\*.color2" | head -n 1 | cut -f 2- | tr -d "  ")
+C4=$(echo "$XCOL" | grep "\*.color4" | head -n 1 | cut -f 2- | tr -d "  ")
+C5=$(echo "$XCOL" | grep "\*.color5" | head -n 1 | cut -f 2- | tr -d "  ")
 
 # Fallbacks if xrdb fails
 C0=${C0:-#1e222a}
 C2=${C2:-#98c379}
 C4=${C4:-#61afef}
+C5=${C5:-#c678dd}
 
 while true; do
   # Use Bash builtin for date/time (avoids calling /bin/date)
@@ -17,7 +19,7 @@ while true; do
 
   # Only one fork for brightness
   light_val=$(light -G)
-  light_val=${light_val%%.*} # Bash string manipulation (avoids calling /bin/cut)
+  light_val=${light_val%%.*}
 
   if [[ "$light_val" -le 25 ]]; then
     b_icon=""
@@ -27,9 +29,28 @@ while true; do
     b_icon=""
   else b_icon=""; fi
 
-  # Update status bar (one fork)
-  xsetroot -name "^c$C2^ $b_icon $light_val ^c$C0^^b$C4^   ^c$C0^^b$C2^ $time_str "
+  # Volume (using wpctl for efficiency)
+  vol_info=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)
+  vol_val=$(echo "$vol_info" | awk '{print $2 * 100}')
+  vol_val=${vol_val%.*}
 
-  # Sleep (one fork)
+  if [[ "$vol_info" == *"[MUTED]"* ]]; then
+    vol_icon="睊"
+    vol_text="Muted"
+  else
+    if [[ "$vol_val" -le 30 ]]; then
+      vol_icon="奄"
+    elif [[ "$vol_val" -le 60 ]]; then
+      vol_icon="奔"
+    else
+      vol_icon="墳"
+    fi
+    vol_text="${vol_val}%"
+  fi
+
+  # Update status bar
+  xsetroot -name "^c$C2^ $b_icon $light_val% ^c$C5^ $vol_icon $vol_text ^c$C0^^b$C4^   ^c$C0^^b$C2^ $time_str "
+
+  # Sleep
   sleep 1
 done
