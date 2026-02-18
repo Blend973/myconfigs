@@ -95,7 +95,7 @@ char *termname = "st-256color";
 unsigned int tabspaces = 8;
 
 /* bg opacity */
-float alpha = 0.8;
+float alpha = 1.0;
 
 /* Background opacity */
 float alpha_def;
@@ -181,8 +181,8 @@ static uint forcemousemod = ShiftMask;
  */
 static MouseShortcut mshortcuts[] = {
     /* mask                 button   function        argument       release */
-    {XK_NO_MOD, Button4, kscrollup, {.i = 1}},
-    {XK_NO_MOD, Button5, kscrolldown, {.i = 1}},
+    {XK_NO_MOD, Button4, kscrollup, {.i = 3}},
+    {XK_NO_MOD, Button5, kscrolldown, {.i = 3}},
     {XK_ANY_MOD, Button2, selpaste, {.i = 0}, 1},
     {ShiftMask, Button4, ttysend, {.s = "\033[5;2~"}},
     {XK_ANY_MOD, Button4, ttysend, {.s = "\031"}},
@@ -224,7 +224,7 @@ static Shortcut shortcuts[] = {
     {ControlMask,
      XK_Delete,
      kbsend,
-     {.s = "\033d[3;5~"}}, /* Ctrl+Delete for forward word kill */
+     {.s = "\033[3;5~"}}, /* Ctrl+Delete for forward word kill */
 };
 
 /*
@@ -366,7 +366,7 @@ static Key key[] = {
     {XK_Insert, ControlMask, "\033[2;5~", +1, 0},
     {XK_Insert, XK_ANY_MOD, "\033[4h", -1, 0},
     {XK_Insert, XK_ANY_MOD, "\033[2~", +1, 0},
-    {XK_Delete, ControlMask, "\033[M", -1, 0},
+    {XK_Delete, ControlMask, "\033[3;5~", -1, 0},
     {XK_Delete, ControlMask, "\033[3;5~", +1, 0},
     {XK_Delete, ShiftMask, "\033[2K", -1, 0},
     {XK_Delete, ShiftMask, "\033[3;2~", +1, 0},
@@ -495,3 +495,14 @@ static uint selmasks[] = {
 static char ascii_printable[] = " !\"#$%&'()*+,-./0123456789:;<=>?"
                                 "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_"
                                 "`abcdefghijklmnopqrstuvwxyz{|}~";
+
+/*
+ * Open urls starting with urlprefixes, contatining urlchars
+ * by passing as ARG1 to urlhandler.
+ */
+char* urlhandler = "xdg-open";
+char urlchars[] =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"abcdefghijklmnopqrstuvwxyz"
+	"0123456789-._~:/?#@!$&'*+,;=%";
+char* urlprefixes[] = {"http://", "https://", NULL};

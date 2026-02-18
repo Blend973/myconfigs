@@ -611,6 +611,95 @@ char *getsel(void) {
   return str;
 }
 
+char *
+strstrany(char* s, char** strs) {
+	char *match;
+	for (int i = 0; strs[i]; i++) {
+		if ((match = strstr(s, strs[i]))) {
+			return match;
+		}
+	}
+	return NULL;
+}
+
+void
+highlighturlsline(int row)
+{
+	char *linestr = calloc(sizeof(char), term.col+1); /* assume ascii */
+	char *match;
+	Line line = TLINE(row);
+	for (int j = 0; j < term.col; j++) {
+		if (line[j].u < 127) {
+			linestr[j] = line[j].u;
+		}
+		linestr[term.col] = '\0';
+	}
+	int url_start = -1;
+	while ((match = strstrany(linestr + url_start + 1, urlprefixes))) {
+		url_start = match - linestr;
+		for (int c = url_start; c < term.col && strchr(urlchars, linestr[c]); c++) {
+			line[c].mode |= ATTR_URL;
+			tsetdirt(row, c);
+		}
+	}
+	free(linestr);
+}
+
+void
+unhighlighturlsline(int row)
+{
+	Line line = TLINE(row);
+	for (int j = 0; j < term.col; j++) {
+		Glyph* g = &line[j];
+		if (g->mode & ATTR_URL) {
+			g->mode &= ~ATTR_URL;
+			tsetdirt(row, j);
+		}
+	}
+	return;
+}
+
+int
+followurl(int col, int row) {
+	char *linestr = calloc(sizeof(char), term.col+1); /* assume ascii */
+	char *match;
+	Line line = TLINE(row);
+	for (int i = 0; i < term.col; i++) {
+		if (line[i].u < 127) {
+			linestr[i] = line[i].u;
+		}
+		linestr[term.col] = '\0';
+	}
+	int url_start = -1, found_url = 0;
+	while ((match = strstrany(linestr + url_start + 1, urlprefixes))) {
+		url_start = match - linestr;
+		int url_end = url_start;
+		for (int c = url_start; c < term.col && strchr(urlchars, linestr[c]); c++) {
+			url_end++;
+		}
+		if (url_start <= col && col < url_end) {
+			found_url = 1;
+			linestr[url_end] = '\0';
+			break;
+		}
+	}
+	if (!found_url) {
+		free(linestr);
+		return 0;
+	}
+
+	pid_t chpid;
+	if ((chpid = fork()) == 0) {
+		if (fork() == 0)
+			execlp(urlhandler, urlhandler, linestr + url_start, NULL);
+		exit(1);
+	}
+	if (chpid > 0)
+		waitpid(chpid, NULL, 0);
+	free(linestr);
+    return 1;
+}
+
 void selclear(void) {
   if (sel.ob.x == -1)
     return;
@@ -2605,6 +2694,8 @@ void drawregion(int x1, int y1, int x2, int y2) {
   for (y = y1; y < y2; y++) {
     if (term.dirty[y]) {
       term.dirty[y] = 0;
+      unhighlighturlsline(y);
+      highlighturlsline(y);
       xdrawline(TSCREEN.buffer[L], x1, y, x2);
     }
     L = (L + 1) % TSCREEN.size;
