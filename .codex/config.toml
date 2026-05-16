@@ -1,0 +1,55 @@
+model = "stepfun/step-3.5-flash:free"
+model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
+model_provider = "kilocode"
+
+[model_providers.kilocode]
+name = "Kilo Gateway"
+base_url = "https://api.kilo.ai/api/gateway/"
+http_headers = { "Authorization" = "Bearer " }
+wire_api = "chat"
+
+[projects."/home/user"]
+trust_level = "trusted"
+
+[projects."/home/user/projects"]
+trust_level = "trusted"
+
+[projects."/home/user/projects/gotube-v2"]
+trust_level = "trusted"
+
+[projects."/home/user/go-yt"]
+trust_level = "trusted"
+
+[projects."/home/user/system-tools"]
+trust_level = "trusted"
+
+[projects."/home/user/gotube-v2"]
+trust_level = "trusted"
+
+[projects."/home/user/.config/st"]
+trust_level = "trusted"
+
+[projects."/home/user/gotube"]
+trust_level = "trusted"
+
+[features]
+multi_agent = true
+unified_exec = true
+steer = true
+shell_snapshot = true
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.exa]
+url = "https://mcp.exa.ai/mcp"
+
+[mcp_servers.rivalsearch]
+url = "https://RivalSearchMCP.fastmcp.app/mcp"
+
+[tui]
+theme = "dracula"

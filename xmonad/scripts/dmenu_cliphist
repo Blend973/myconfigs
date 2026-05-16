@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# Source pywal colors
+[ -f "$HOME/.cache/wal/colors.sh" ] && . "$HOME/.cache/wal/colors.sh"
+
+histfile="$HOME/.cache/cliphist"
+placeholder="<NEWLINE>"
+
+sel() {
+  selection=$(tac "$histfile" | dmenu -b -l 5 -i -p "Clipboard history:" -nb "$background" -nf "$foreground" -sb "$color1" -sf "$foreground")
+  [ -n "$selection" ] && printf '%s' "$selection" | sed "s/$placeholder/\n/g" | xclip -i -selection clipboard ;}
+
+watch() {
+  [ -f "$histfile" ] || touch "$histfile"
+  while true; do
+    clipnotify
+    clip=$(xclip -o -selection clipboard 2>/dev/null)
+    [ -z "$clip" ] && continue
+    multiline=$(echo "$clip" | sed ':a;N;$!ba;s/\n/'"$placeholder"'/g')
+    grep -Fxq "$multiline" "$histfile" || echo "$multiline" >> "$histfile"
+  done ;}
+
+case "$1" in
+  sel) sel ;;
+  watch) watch ;;
+  *) printf "$0 | File: $histfile\n\nsel - select from history file with dmenu and recopy!\nwatch - daemon mode: auto-capture clipboard changes via clipnotify\n" ; exit 0 ;;
+esac
+

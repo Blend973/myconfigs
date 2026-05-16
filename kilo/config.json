@@ -1,0 +1,46 @@
+{
+  "$schema": "https://kilo.ai/config.json",
+  "default_agent": "ask",
+  "agent": {
+    "ask": {
+      "temperature": 0.2
+    },
+    "code": {
+      "temperature": 0.2
+    },
+    "debug": {
+      "temperature": 0.2
+    },
+    "explore": {
+      "temperature": 0.2
+    },
+    "orchestrator": {
+      "temperature": 0.2
+    }
+  },
+  "mcp": {
+    "exa": {
+      "type": "remote",
+      "url": "https://mcp.exa.ai/mcp",
+      "enabled": true
+    },
+    "deepwiki": {
+      "type": "remote",
+      "url": "https://mcp.deepwiki.com/mcp",
+      "enabled": true
+    },
+    "rivalsearch": {
+      "type": "remote",
+      "url": "https://RivalSearchMCP.fastmcp.app/mcp",
+      "enabled": true
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    }
+  },
+  "permission": {
+    "bash": "allow"
+  }
+}

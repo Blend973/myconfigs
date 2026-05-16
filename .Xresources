@@ -1,0 +1,44 @@
+! Import pywal colors
+#include "/home/user/.cache/wal/colors.Xresources"
+
+! Map pywal colors to dwm
+dwm.normfgcolor: ${xrdb:*.color7}
+dwm.normbgcolor: ${xrdb:*.color0}
+dwm.normbordercolor: ${xrdb:*.color8}
+dwm.normfloatcolor: ${xrdb:*.color7}
+
+dwm.selfgcolor: ${xrdb:*.color15}
+dwm.selbgcolor: ${xrdb:*.color2}
+dwm.selbordercolor: ${xrdb:*.color15}
+dwm.selfloatcolor: ${xrdb:*.color15}
+
+dwm.titlenormfgcolor: ${xrdb:*.color7}
+dwm.titlenormbgcolor: ${xrdb:*.color0}
+dwm.titlenormbordercolor: ${xrdb:*.color8}
+dwm.titlenormfloatcolor: ${xrdb:*.color7}
+
+dwm.titleselfgcolor: ${xrdb:*.color15}
+dwm.titleselbgcolor: ${xrdb:*.color2}
+dwm.titleselbordercolor: ${xrdb:*.color15}
+dwm.titleselfloatcolor: ${xrdb:*.color15}
+
+dwm.tagsnormfgcolor: ${xrdb:*.color7}
+dwm.tagsnormbgcolor: ${xrdb:*.color0}
+dwm.tagsnormbordercolor: ${xrdb:*.color8}
+dwm.tagsnormfloatcolor: ${xrdb:*.color7}
+
+dwm.tagsselfgcolor: ${xrdb:*.color15}
+dwm.tagsselbgcolor: ${xrdb:*.color2}
+dwm.tagsselbordercolor: ${xrdb:*.color15}
+dwm.tagsselfloatcolor: ${xrdb:*.color15}
+
+dwm.hidnormfgcolor: ${xrdb:*.color7}
+dwm.hidnormbgcolor: ${xrdb:*.color0}
+dwm.hidnormbordercolor: ${xrdb:*.color8}
+dwm.hidselfgcolor: ${xrdb:*.color15}
+dwm.hidselbgcolor: ${xrdb:*.color2}
+dwm.hidselbordercolor: ${xrdb:*.color15}
+
+dwm.urgfgcolor: ${xrdb:*.color15}
+dwm.urgbgcolor: ${xrdb:*.color3}
+dwm.urgbordercolor: ${xrdb:*.color1}

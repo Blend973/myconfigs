@@ -1,0 +1,36 @@
+# Helix Language Configuration
+
+[language-server.clangd]
+command = "clangd"
+args = ["--background-index", "--clang-tidy", "--header-insertion=iwyu"]
+
+[language-server.rust-analyzer]
+command = "rust-analyzer"
+
+[language-server.ty]
+command = "ty"
+args = ["server"]
+config = {}
+
+[[language]]
+name = "c"
+file-types = ["c", "h"]
+language-servers = ["clangd"]
+
+# CPP
+[[language]]
+name = "cpp"
+file-types = ["cpp", "cc", "cxx", "hpp", "h"]
+language-servers = ["clangd"]
+
+# Rust
+[[language]]
+name = "rust"
+file-types = ["rs"]
+language-servers = ["rust-analyzer"]
+
+# Python - use built-in ty, no roots required
+[[language]]
+name = "python"
+language-servers = ["ty"]
+roots = []

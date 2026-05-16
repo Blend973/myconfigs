@@ -1,0 +1,156 @@
+# Helix Editor Configuration
+
+theme = "dracula2"
+
+[editor]
+line-number = "relative"
+mouse = true
+cursor-shape = { insert = "bar", normal = "bar", select = "bar" }
+color-modes = true
+true-color = true
+cursorline = true
+auto-completion = true
+path-completion = true
+completion-trigger-len = 1
+completion-timeout = 5
+idle-timeout = 100
+preview-completion-insert = true
+
+# LSP settings
+[editor.lsp]
+enable = true
+auto-signature-help = true
+snippets = true
+
+[editor.file-picker]
+hidden = false
+
+[editor.auto-pairs]
+"\"" = "\""
+"'" = "'"
+"`" = "`"
+"(" = ")"
+"[" = "]"
+"{" = "}"
+
+[editor.indent-guides]
+render = true
+
+[keys.normal]
+# Navigation
+"h" = "move_char_left"
+"j" = "move_line_down"
+"k" = "move_line_up"
+"l" = "move_char_right"
+"w" = "move_next_word_start"
+"b" = "move_prev_word_start"
+"e" = "move_next_word_end"
+
+# Save file (C-s)
+"C-s" = ":w"
+
+# Page scroll (C-d/C-u)
+"C-d" = "scroll_down"
+"C-u" = "scroll_up"
+
+# Selection modes
+"v" = "select_mode"
+"V" = "extend_line"
+
+# Comment toggle (C-c)
+"C-c" = "toggle_comments"
+
+# Diagnostic & Git navigation
+"[" = { d = "goto_prev_diag", g = "goto_prev_change" }
+"]" = { d = "goto_next_diag", g = "goto_next_change" }
+"D" = "goto_last_diag"
+
+# LSP navigation (g mode - like nvim gd, gr, gI, gy, gD)
+"g" = { d = "goto_definition", D = "goto_declaration", r = "goto_reference", I = "goto_implementation", y = "goto_type_definition" }
+
+# Hover (K)
+"K" = "hover"
+
+[keys.insert]
+# Word navigation (Ctrl+arrows)
+"C-left" = "move_prev_word_start"
+"C-right" = "move_next_word_start"
+
+# Word delete
+"C-backspace" = "delete_word_backward"
+"C-del" = "delete_word_forward"
+"C-w" = "delete_word_backward"
+
+# Space leader (like nvim <leader>)
+[keys.normal." "]
+# Edit operations
+a = "select_all"
+y = "yank_to_clipboard"
+p = "paste_clipboard_after"
+P = "paste_clipboard_before"
+
+# File operations
+f = "file_picker"
+F = "file_picker_in_current_directory"
+e = "file_explorer"
+
+# Recent files (like nvim <leader>fr, <leader>fR)
+# Helix doesn't have oldfiles picker - use buffer_picker (b) instead
+r = "goto_last_accessed_file"
+m = "goto_last_modified_file"
+
+# Grep/Search (like nvim <leader>/ or telescope live_grep)
+"/" = "global_search"
+
+# Search word under cursor (like nvim *)
+"*" = "search_selection_detect_word_boundaries"
+
+# Note: n/N for search_next/prev are helix defaults
+
+# Buffer operations (use helix defaults gn/gp, Space b for picker)
+b = "buffer_picker"
+
+# Diagnostics (like nvim <leader>cd, ]d, [d)
+d = { d = "diagnostics_picker", D = "workspace_diagnostics_picker" }
+
+# Save/Quit/Close buffer (like nvim :w :q :bd)
+w = ":w"
+q = ":quit"
+c = ":bc"
+
+# Close other/all buffers (like nvim <leader>bo, <leader>ba) - use Shift keys to avoid conflict with jumplist
+"O" = ":bco"
+"A" = ":bca"
+
+# Splits (like nvim <leader>- <leader>|)
+s = "hsplit"
+v = "vsplit"
+
+# Close window (like nvim <leader>wd)
+x = "wclose"
+
+# Last picker (like nvim <leader>: or Space ')
+"'" = "last_picker"
+
+# Command palette (like :commands)
+"?" = "command_palette"
+
+# Jumplist (like C-o/C-i)
+o = "jump_backward"
+i = "jump_forward"
+
+# Buffer navigation (like nvim [b ]b - use helix defaults gn/gp)
+"[" = { d = "goto_prev_diag", g = "goto_prev_change" }
+"]" = { d = "goto_next_diag", g = "goto_next_change" }
+
+# New buffer (like nvim <leader>bN)
+n = ":new"
+
+# Healthcheck (like nvim <leader>uh or :checkhealth)
+h = ":sh hx --health"
+
+# Config (open and reload)
+C = ":config-open"
+R = ":config-reload"
+
+# Note: = formats selections (helix default), use :format for whole file

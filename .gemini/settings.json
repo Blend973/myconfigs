@@ -1,0 +1,70 @@
+{
+  "security": {
+    "auth": {
+      "selectedType": "oauth-personal"
+    }
+  },
+  "privacy": {
+    "usageStatisticsEnabled": false
+  },
+  "mcpServers": {
+    "deepwiki": {
+      "httpUrl": "https://mcp.deepwiki.com/mcp"
+    },
+    "exa": {
+      "url": "https://mcp.exa.ai/mcp"
+    },
+    "rivalsearch": {
+      "url": "https://RivalSearchMCP.fastmcp.app/mcp"
+    }
+  },
+  "general": {
+    "previewFeatures": true,
+    "preferredEditor": "neovim",
+    "enableAutoUpdate": false,
+    "sessionRetention": {
+      "enabled": true,
+      "maxAge": "30d",
+      "warningAcknowledged": true
+    },
+    "defaultApprovalMode": "default",
+    "plan": {
+      "enabled": true
+    }
+  },
+  "ui": {
+    "hideBanner": true,
+    "hideTips": true,
+    "showHomeDirectoryWarning": false,
+    "autoThemeSwitching": false,
+    "theme": "Dracula",
+    "dynamicWindowTitle": false,
+    "inlineThinkingMode": "full",
+    "showStatusInTitle": true
+  },
+  "experimental": {},
+  "tools": {
+    "autoAccept": [
+      "mcp__exa__web_search_exa",
+      "mcp__exa__get_code_context_exa",
+      "mcp__rivalsearch__web_search",
+      "mcp__rivalsearch__research_topic",
+      "mcp__rivalsearch__research_agent",
+      "mcp__rivalsearch__scientific_research",
+      "mcp__rivalsearch__social_search",
+      "mcp__rivalsearch__news_aggregation",
+      "mcp__rivalsearch__github_search",
+      "mcp__rivalsearch__document_analysis",
+      "mcp__rivalsearch__map_website",
+      "mcp__rivalsearch__content_operations",
+      "web_search",
+      "web_fetch"
+    ]
+  },
+  "model": {
+    "name": "gemini-3-flash-preview"
+  },
+  "agents": {
+    "overrides": {}
+  }
+}

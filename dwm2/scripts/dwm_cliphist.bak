@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# Source pywal colors
+[ -f "$HOME/.cache/wal/colors.sh" ] && . "$HOME/.cache/wal/colors.sh"
+
+histfile="$HOME/.cache/cliphist"
+placeholder="<NEWLINE>"
+
+highlight() {
+  clip=$(xclip -o -selection primary | xclip -i -f -selection clipboard 2>/dev/null) ;}
+
+output() {
+  clip=$(xclip -i -f -selection clipboard 2>/dev/null) ;}
+
+write() {
+  [ -f "$histfile" ] || touch $histfile
+  [ -z "$clip" ] && exit 0
+  multiline=$(echo "$clip" | sed ':a;N;$!ba;s/\n/'"$placeholder"'/g')
+  grep -Fxq "$multiline" "$histfile" || echo "$multiline" >> "$histfile" ;}
+
+sel() {
+  selection=$(tac "$histfile" | dmenu -b -l 5 -i -p "Clipboard history:" -nb "$background" -nf "$foreground" -sb "$color1" -sf "$foreground")
+  [ -n "$selection" ] && printf '%s' "$selection" | sed "s/$placeholder/\n/g" | xclip -i -selection clipboard ;}
+
+case "$1" in
+  add) highlight && write ;;
+  out) output && write ;;
+  sel) sel ;;
+  *) printf "$0 | File: $histfile\n\nadd - copies primary selection to clipboard, and adds to history file\nout - pipe commands to copy output to clipboard, and add to history file\nsel - select from history file with dmenu and recopy!\n" ; exit 0 ;;
+esac
+
