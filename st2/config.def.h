@@ -167,7 +167,7 @@ static unsigned int blinktimeout = 800;
 /*
  * thickness of underline and bar cursors
  */
-static unsigned int cursorthickness = 2;
+static unsigned int cursorthickness = 1;
 
 /* Hide the X cursor whenever a key is pressed. 0: off, 1: on */
 int hidecursor = 0;
@@ -354,7 +354,7 @@ unsigned int dynamic_cursor_color = 1;
  * 7: blinking st cursor
  * 8: steady st cursor
  */
-static unsigned int cursorstyle = 2;
+static unsigned int cursorstyle = 6;
 static Rune stcursor = 0x2603; /* snowman ("☃") */
 
 /*

@@ -964,7 +964,8 @@ ttywrite(const char *s, size_t n, int may_echo)
 {
 	const char *next;
 
-	kscrolldown(&((Arg){ .i = term.scr }));
+	if (!term.paste_in_progress)
+		kscrolldown(&((Arg){ .i = term.scr }));
 
 	if (term.hold & TTYWRITE)
 		return;

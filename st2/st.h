@@ -225,6 +225,7 @@ typedef struct {
 	char *cwd;    /* current working directory */
 	int hold_at_exit; /* remain open after child process exits */
 	int hold;         /* hold state */
+	int paste_in_progress;   /* don't scroll-to-bottom on paste */
 } Term;
 
 typedef union {

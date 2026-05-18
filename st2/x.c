@@ -626,6 +626,7 @@ selnotify(XEvent *e)
 	if (property == None)
 		return;
 
+	term.paste_in_progress = 1;
 	do {
 		if (XGetWindowProperty(xw.dpy, xw.win, property, ofs,
 					BUFSIZ/4, False, AnyPropertyType,
@@ -692,6 +693,8 @@ selnotify(XEvent *e)
 		/* number of 32-bit chunks returned */
 		ofs += nitems * format / 32;
 	} while (rem > 0);
+
+	term.paste_in_progress = 0;
 
 	/*
 	 * Deleting the property again tells the selection owner to send the
