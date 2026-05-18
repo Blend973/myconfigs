@@ -36,7 +36,6 @@ enum glyph_attribute {
 	ATTR_WIDE       = 1 << 9,
 	ATTR_WDUMMY     = 1 << 10,
 	ATTR_URL        = 1 << 11,
-	ATTR_SIXEL      = 1 << 12,
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 };
 
@@ -88,17 +87,6 @@ typedef struct {
 	char state;
 } TCursor;
 
-typedef struct _ImageList {
-	struct _ImageList *next, *prev;
-	unsigned char *pixels;
-	void *pixmap;
-	int width;
-	int height;
-	int x;
-	int y;
-	int should_delete;
-} ImageList;
-
 /* Screen lines */
 typedef struct {
 	Line *buffer;
@@ -126,8 +114,6 @@ typedef struct {
 	int charset;
 	int icharset;
 	int *tabs;
-	ImageList *images;
-	ImageList *images_alt;
 	Rune lastc;
 } Term;
 
@@ -173,7 +159,6 @@ int selected(int, int);
 char *getsel(void);
 int tscrollback(void);
 
-int sixel_in_cell(int, int);
 void highlighturlsline(int);
 void unhighlighturlsline(int);
 int followurl(int, int);
