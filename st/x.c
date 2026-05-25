@@ -991,6 +991,9 @@ xsetcolorname(int x, const char *name)
 	XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[x]);
 	dc.col[x] = ncolor;
 
+	if (x == defaultbg)
+		xclear(0, 0, win.w, win.h);
+
 	return 0;
 }
 

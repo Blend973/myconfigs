@@ -707,6 +707,7 @@ void execsh(char *cmd, char **args) {
   setenv("SHELL", sh, 1);
   setenv("HOME", pw->pw_dir, 1);
   setenv("TERM", termname, 1);
+  setenv("COLORTERM", "truecolor", 1);
 
   signal(SIGCHLD, SIG_DFL);
   signal(SIGHUP, SIG_DFL);
@@ -1592,6 +1593,8 @@ void tsetmode(int priv, int set, const int *args, int narg) {
         }
         if (set ^ alt) /* set is always 1 or 0 */
           tswapscreen();
+        if (!set)
+          xloadcols();
         if (*args != 1049)
           break;
         /* FALLTHROUGH */
@@ -1959,6 +1962,14 @@ void strhandle(void) {
       } else {
         tfulldirt();
       }
+      return;
+    case 110: /* reset dynamic VT100 text foreground color */
+    case 111: /* reset dynamic VT100 text background color */
+    case 112: /* reset dynamic text cursor color */
+      if ((j = par - 110) < 0 || j >= LEN(osc_table))
+        break;
+      xsetcolorname(osc_table[j].idx, NULL);
+      tfulldirt();
       return;
     case 4: /* color set */
       if (narg < 3)
