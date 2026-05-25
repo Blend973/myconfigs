@@ -15,14 +15,14 @@ return {
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "catppuccin",
+      colorscheme = "catppuccin-mocha",
     },
   },
 }
 
 -- return {
 --   require("tokyonight").setup({
---     style = "night",
+--     style = "moon",
 --     transparent = true,
 --     -- on_colors = function(colors)
 --     --   colors.bg = "#000000"
