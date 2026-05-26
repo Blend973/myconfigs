@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+## Load Colors Function
+# Must run in foreground context to update main script variables.
+load_colors() {
+  # Refresh theme data (foreground - ensures variables update)
+  wal -R >/dev/null 2>&1
+  xrdb -merge /home/user/.Xresources >/dev/null 2>&1
+  
+  XCOL=$(xrdb -query)
+  C0=$(echo "$XCOL" | grep "\*.color0" | head -n 1 | cut -f 2- | tr -d "  ")
+  C2=$(echo "$XCOL" | grep "\*.color2" | head -n 1 | cut -f 2- | tr -d "  ")
+  C4=$(echo "$XCOL" | grep "\*.color4" | head -n 1 | cut -f 2- | tr -d "  ")
+  C5=$(echo "$XCOL" | grep "\*.color5" | head -n 1 | cut -f 2- | tr -d "  ")
+
+  C0=${C0:-#1e222a}
+  C2=${C2:-#98c379}
+  C4=${C4:-#61afef}
+  C5=${C5:-#c678dd}
+}
+
+## Initial Load
+load_colors
+
+## Trap SIGUSR1 to reload colors
+# This updates the variables in the main process.
+trap load_colors SIGUSR1
+
+## Event Listener (Background)
+# Monitors root window for DWM restarts.
+# $$ in a subshell refers to the main script PID.
+(
+  xprop -spy -root _NET_SUPPORTING_WM_CHECK | while read -r line; do
+    kill -USR1 $$ 2>/dev/null
+  done
+) &
+
+while true; do
+  # Time (Builtin)
+  printf -v time_str "%(%a, %I:%M %p)T" -1
+
+  # Brightness (Zero-fork - sysfs)
+  if [[ -f /sys/class/backlight/intel_backlight/brightness ]]; then
+    read -r light_cur </sys/class/backlight/intel_backlight/brightness
+    read -r light_max </sys/class/backlight/intel_backlight/max_brightness
+    light_val=$((light_cur * 100 / light_max))
+  else
+    light_val=0
+  fi
+
+  if [[ $light_val -le 25 ]]; then b_icon=""
+  elif [[ $light_val -le 50 ]]; then b_icon=""
+  elif [[ $light_val -le 75 ]]; then b_icon=""
+  else b_icon=""; fi
+
+  # Volume (Single-fork - optimized)
+  vol_info=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)
+  if [[ "$vol_info" == *"[MUTED]"* ]]; then
+    vol_icon="󰝟 "; vol_text="Muted"
+  else
+    vol_raw=${vol_info#* }; vol_raw=${vol_raw%% *}; vol_raw=${vol_raw/./}
+    vol_val=$((10#$vol_raw))
+    if [[ $vol_val -le 30 ]]; then vol_icon="奄"
+    elif [[ $vol_val -le 60 ]]; then vol_icon="奔"
+    else vol_icon="墳"; fi
+    vol_text="${vol_val}%"
+  fi
+
+  # Update status bar
+  xsetroot -name "^c$C2^ $b_icon $light_val% ^c$C2^ $vol_icon $vol_text ^c$C0^^b$C4^   ^c$C0^^b$C2^ $time_str "
+
+  # Interruptible sleep
+  sleep 1 & wait $!
+done
