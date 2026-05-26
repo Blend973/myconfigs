@@ -6,10 +6,11 @@ load_colors() {
   # Refresh theme data (foreground - ensures variables update)
   wal -R >/dev/null 2>&1
   xrdb -merge /home/user/.Xresources >/dev/null 2>&1
-  
+
   XCOL=$(xrdb -query)
   C0=$(echo "$XCOL" | grep "\*.color0" | head -n 1 | cut -f 2- | tr -d "  ")
   C2=$(echo "$XCOL" | grep "\*.color2" | head -n 1 | cut -f 2- | tr -d "  ")
+  C1=$(echo "$XCOL" | grep "\*.color1" | head -n 1 | cut -f 2- | tr -d "  ")
   C4=$(echo "$XCOL" | grep "\*.color4" | head -n 1 | cut -f 2- | tr -d "  ")
   C5=$(echo "$XCOL" | grep "\*.color5" | head -n 1 | cut -f 2- | tr -d "  ")
 
@@ -20,6 +21,8 @@ load_colors() {
 }
 
 ## Initial Load
+# Wait for DWM and services to stabilize
+sleep 2
 load_colors
 
 ## Trap SIGUSR1 to reload colors
@@ -30,8 +33,11 @@ trap load_colors SIGUSR1
 # Monitors root window for DWM restarts.
 # $$ in a subshell refers to the main script PID.
 (
-  xprop -spy -root _NET_SUPPORTING_WM_CHECK | while read -r line; do
-    kill -USR1 $$ 2>/dev/null
+  while true; do
+    xprop -spy -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | while read -r line; do
+      kill -USR1 $$ 2>/dev/null
+    done
+    sleep 2
   done
 ) &
 
@@ -48,27 +54,41 @@ while true; do
     light_val=0
   fi
 
-  if [[ $light_val -le 25 ]]; then b_icon=""
-  elif [[ $light_val -le 50 ]]; then b_icon=""
-  elif [[ $light_val -le 75 ]]; then b_icon=""
+  if [[ $light_val -le 25 ]]; then
+    b_icon=""
+  elif [[ $light_val -le 50 ]]; then
+    b_icon=""
+  elif [[ $light_val -le 75 ]]; then
+    b_icon=""
   else b_icon=""; fi
 
   # Volume (Single-fork - optimized)
-  vol_info=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)
-  if [[ "$vol_info" == *"[MUTED]"* ]]; then
-    vol_icon="󰝟 "; vol_text="Muted"
+  # Use timeout to prevent hanging if Pipewire/Wireplumber is busy
+  vol_info=$(timeout 0.5s wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)
+  
+  if [[ -z "$vol_info" ]]; then
+    vol_icon="奄"
+    vol_text="Init..."
+  elif [[ "$vol_info" == *"[MUTED]"* ]]; then
+    vol_icon="󰝟 "
+    vol_text="Muted"
   else
-    vol_raw=${vol_info#* }; vol_raw=${vol_raw%% *}; vol_raw=${vol_raw/./}
+    vol_raw=${vol_info#* }
+    vol_raw=${vol_raw%% *}
+    vol_raw=${vol_raw/./}
     vol_val=$((10#$vol_raw))
-    if [[ $vol_val -le 30 ]]; then vol_icon="奄"
-    elif [[ $vol_val -le 60 ]]; then vol_icon="奔"
+    if [[ $vol_val -le 30 ]]; then
+      vol_icon="奄"
+    elif [[ $vol_val -le 60 ]]; then
+      vol_icon="奔"
     else vol_icon="墳"; fi
     vol_text="${vol_val}%"
   fi
 
   # Update status bar
-  xsetroot -name "^c$C2^ $b_icon $light_val% ^c$C2^ $vol_icon $vol_text ^c$C0^^b$C4^   ^c$C0^^b$C2^ $time_str "
+  xsetroot -name "^c$C5^ $b_icon $light_val% ^c$C2^ $vol_icon $vol_text ^c$C0^^b$C1^   ^c$C0^^b$C4^ $time_str "
 
   # Interruptible sleep
-  sleep 1 & wait $!
+  sleep 1 &
+  wait $!
 done
