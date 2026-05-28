@@ -4,8 +4,6 @@
 # Must run in foreground context to update main script variables.
 load_colors() {
   # Refresh theme data (foreground - ensures variables update)
-  wal -R >/dev/null 2>&1
-  xrdb -merge /home/user/.Xresources >/dev/null 2>&1
 
   XCOL=$(xrdb -query)
   C0=$(echo "$XCOL" | grep "\*.color0" | head -n 1 | cut -f 2- | tr -d "  ")
@@ -22,7 +20,7 @@ load_colors() {
 
 ## Initial Load
 # Wait for DWM and services to stabilize
-sleep 2
+sleep 1
 load_colors
 
 ## Trap SIGUSR1 to reload colors
