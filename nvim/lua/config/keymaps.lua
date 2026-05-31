@@ -11,3 +11,8 @@ map("v", "<C-c>", '"+y', { desc = "Copy to system clipboard" })
 -- Ctrl-V to paste in insert mode
 map("i", "<C-v>", "<C-r>+", { desc = "Paste from system clipboard" })
 map("n", "<leader>a", "ggVG")
+
+vim.keymap.del({ "x", "n", "s" }, "<C-s>")
+vim.keymap.del("n", "<leader>qq")
+map({ "x", "n", "s" }, "<leader>v", "<cmd>w<cr><esc>", { desc = "Save File" })
+map("n", "<leader>m", "<cmd>qa<cr>", { desc = "Quit All" })
