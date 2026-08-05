@@ -1,5 +1,8 @@
 # Added by ForgeCode installer
-export PATH="/home/user/.local/bin:$PATH"
+case ":$PATH:" in
+    *":/home/user/.local/bin:"*) ;;
+    *) export PATH="/home/user/.local/bin:$PATH" ;;
+esac
 #
 # ~/.bashrc
 #
@@ -17,6 +20,10 @@ exec {BASH_XTRACEFD}>/dev/null
 bind '"\e[A": history-search-backward'
 bind '"\e[B": history-search-forward'
 
+# History settings
+HISTSIZE=10000
+HISTFILESIZE=10000
+
 # Ctrl+Backspace deletes backward (multiple common sequences)
 bind '"\C-H": backward-kill-word'
 bind '"\e[3;5~": backward-kill-word'
@@ -27,10 +34,10 @@ bind '"\e\C-H": backward-kill-word'
 bind '"\e[3;2~": kill-word'
 bind '"\e[3;5~": kill-word'
 
-alias ls='eza -al --color=always --group-directories-first --icons'
-alias la='eza -a --color=always --group-directories-first --icons'
-alias ll='eza -l --color=always --group-directories-first --icons'
-alias lt='eza -aT --color=always --group-directories-first --icons'
+alias ls='eza -al --color=always --group-directories-first --icons always'
+alias la='eza -a --color=always --group-directories-first --icons always'
+alias ll='eza -l --color=always --group-directories-first --icons always'
+alias lt='eza -aT --color=always --group-directories-first --icons always'
 alias l.="eza -a | grep -e '^\.'"
 
 alias grubup="sudo grub-mkconfig -o /boot/grub/grub.cfg"
@@ -89,7 +96,7 @@ fb() {
 __git_prompt() {
     local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
     if [ -n "$branch" ]; then
-        local dirty=$(git diff --quiet 2>/dev/null || echo " 󰦷")
+        local dirty=$(git diff --quiet 2>/dev/null || echo " 󰦷 ")
         printf " \e[1;36m\e[0m \e[1;33m%s%s" "$branch" "$dirty"
     fi
 }
