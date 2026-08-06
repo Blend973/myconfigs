@@ -1,0 +1,35 @@
+/* ==UserStyle==
+@name         Global Anti-Motion, GIF & Background Canvas Blocker
+@namespace    github.com/openstyles/stylus
+@version      3.2.0
+@description  Kills CSS/JS motion, hides decorative background canvases, blocks GIFs and silent feature videos.
+==/UserStyle== */
+
+/* 1. Kill all CSS/JS motion globally, preserve interactive Canvas */
+*:not(canvas, canvas *),
+*:not(canvas, canvas *)::before,
+*:not(canvas, canvas *)::after {
+  animation: none !important;
+  animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition: none !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+/* 2. Kill decorative, full-screen background/overlay canvas animations (particles, fx) */
+canvas[class*="pointer-events-none"][class*="absolute"],
+canvas[class*="inset-0"] {
+  display: none !important;
+}
+
+/* 3. Hide decorative videos and MP4 "GIFs" lacking user controls */
+video:not([controls]) {
+  display: none !important;
+}
+
+/* 4. Suppress standard .gif image files */
+img[src*=".gif"],
+a[href*=".gif"] img {
+  display: none !important;
+}
