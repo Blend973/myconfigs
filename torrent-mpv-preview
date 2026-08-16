@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""
+Preview poster for torrent-mpv fzf selection.
+Usage: torrent-mpv-preview <index> <backend> <socket_or_none>
+
+Backends: kitty-icat, sixel, ueberzugpp, chafa
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+RESULTS_FILE = os.path.join(tempfile.gettempdir(), "torrent-mpv", "results.json")
+CACHE_DIR = os.path.join(tempfile.gettempdir(), "torrent-mpv", "posters")
+IDENTIFIER = "torrent-mpv-poster"
+
+
+def get_cached_poster(url: str) -> str | None:
+    """Return local path if poster is cached, otherwise None."""
+    import hashlib
+    if not url:
+        return None
+        
+    filename = hashlib.md5(url.encode()).hexdigest() + ".jpg"
+    filepath = os.path.join(CACHE_DIR, filename)
+
+    if os.path.exists(filepath) and os.path.getsize(filepath) > 100:
+        return filepath
+    return None
+
+
+def main():
+    if len(sys.argv) < 3:
+        sys.exit(1)
+
+    try:
+        idx = int(sys.argv[1])
+    except ValueError:
+        sys.exit(1)
+
+    backend = sys.argv[2]
+    socket_path = sys.argv[3] if len(sys.argv) > 3 else None
+
+    if not os.path.exists(RESULTS_FILE):
+        sys.exit(1)
+
+    with open(RESULTS_FILE) as f:
+        results = json.load(f)
+
+    if idx < 0 or idx >= len(results):
+        sys.exit(0)
+
+    result = results[idx]
+    poster = result.get("poster", "")
+
+    # Preview pane dimensions
+    preview_cols = int(os.environ.get("FZF_PREVIEW_COLUMNS", "40"))
+    preview_lines = int(os.environ.get("FZF_PREVIEW_LINES", "20"))
+
+    # Leave a 1-cell gap on all sides like ueberzugpp
+    img_w = preview_cols - 2
+    img_h = preview_lines - 2
+
+    local = get_cached_poster(poster)
+    
+    if not local:
+        # Clear Kitty graphics if no image is found
+        if backend == "kitty-icat":
+            sys.stdout.write("\033_Ga=d;\033\\")
+            sys.stdout.flush()
+        sys.exit(0)
+
+    try:
+        if backend == "ueberzugpp":
+            if socket_path and socket_path != "none" and os.path.exists(socket_path):
+                subprocess.run(
+                    ["ueberzugpp", "cmd",
+                     f"--socket={socket_path}",
+                     f"--identifier={IDENTIFIER}",
+                     "--action=add",
+                     f"--file={local}",
+                     f"--xpos={int(os.environ.get('FZF_PREVIEW_LEFT', 0)) + 1}", 
+                     f"--ypos={int(os.environ.get('FZF_PREVIEW_TOP', 0)) + 1}",
+                     f"--max-width={img_w}", f"--max-height={img_h}"],
+                    timeout=2,
+                    capture_output=True,
+                )
+                
+        elif backend == "kitty-icat":
+            # Clear previous Kitty graphics first to prevent ghosting
+            sys.stdout.write("\033_Ga=d;\033\\")
+            sys.stdout.flush()
+            
+            # chafa -f kitty is much more reliable inside fzf pipes than kitty +kitten icat
+            if shutil.which("chafa"):
+                subprocess.run(
+                    ["chafa", f"--size={preview_cols}x{preview_lines}", "-f", "kitty", local],
+                    timeout=3, stdout=sys.stdout
+                )
+            else:
+                try:
+                    # Fallback to icat if chafa is missing
+                    subprocess.run(
+                        ["kitty", "+kitten", "icat", "--place", f"{img_w}x{img_h}@1x1", "--scale-up", "--transfer-mode=memory", local],
+                        timeout=3, stdout=sys.stdout, stderr=subprocess.PIPE, check=True
+                    )
+                except Exception:
+                    pass
+            
+        elif backend == "sixel":
+            # Clear previous graphics to prevent ghosting/overlapping
+            sys.stdout.write("\033[2J\033[H")
+            sys.stdout.flush()
+            
+            # chafa -f sixels for terms with sixel support, using the same positioning as kitty
+            subprocess.run(
+                ["chafa", f"--size={preview_cols}x{preview_lines}", "-f", "sixels", local],
+                timeout=3, stdout=sys.stdout
+            )
+            
+        elif backend == "chafa":
+            # Clear previous graphics
+            sys.stdout.write("\033[2J\033[H")
+            sys.stdout.flush()
+            subprocess.run(
+                ["chafa", f"--size={img_w}x{img_h}", local],
+                timeout=3, stdout=sys.stdout
+            )
+    except Exception:
+        pass
+
+if __name__ == "__main__":
+    main()

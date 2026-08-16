@@ -1,0 +1,818 @@
+#!/usr/bin/env python3
+"""
+torrent-mpv — Search torrent sites, select with fzf, stream in mpv via peerflix.
+
+Searches: YTS, EZTV, The Pirate Bay, LimeTorrents, RARBG (all parallel)
+
+Dependencies:
+    pip install aiohttp beautifulsoup4
+    npm install -g peerflix
+
+Usage:
+    torrent-mpv <search query>
+    torrent-mpv "dune" --quality 1080p
+    torrent-mpv --config
+"""
+
+import asyncio
+import hashlib
+import json
+import os
+import re
+import select
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import termios
+import threading
+import time
+import tty
+import urllib.parse
+from pathlib import Path
+
+try:
+    import aiohttp
+    from bs4 import BeautifulSoup
+except ImportError:
+    print("Missing deps. Run: pip install aiohttp beautifulsoup4", file=sys.stderr)
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "torrent-mpv"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+TEMP_DIR = Path(tempfile.gettempdir()) / "torrent-mpv"
+SCRIPT_DIR = Path(__file__).parent.resolve()
+TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+DEFAULT_CONFIG = {
+    "player": "mpv",
+    "max_results": 25,
+    "min_seeds": 5,
+    "sites": ["yts", "eztv", "tpb", "limetorrents", "rarbg"],
+    "preferred_quality": "",
+    "sort_by": "seeds",
+}
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) "
+        "Gecko/20100101 Firefox/131.0"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+YTS_APIS = [
+    "https://yts.bz/api/v2/list_movies.json",
+    "https://yts.lt/api/v2/list_movies.json",
+    "https://yts.proxyninja.org/api/v2/list_movies.json",
+    "https://yts.torrentbay.st/api/v2/list_movies.json",
+]
+
+EZTV_APIS = [
+    "https://eztvx.to/api/get-torrents",
+    "https://eztv.wf/api/get-torrents",
+    "https://eztv.tf/api/get-torrents",
+    "https://eztv1.xyz/api/get-torrents",
+]
+
+LT_MIRRORS = [
+    "https://www.limetorrents.lol",
+    "https://www.limetorrents.fun",
+]
+
+RARBG_MIRRORS = [
+    "https://therarbg.to",
+    "https://therarbg.com",
+]
+
+
+# ---------------------------------------------------------------------------
+# Config helpers
+# ---------------------------------------------------------------------------
+def load_config() -> dict:
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE) as f:
+                return {**DEFAULT_CONFIG, **json.load(f)}
+        except (json.JSONDecodeError, IOError):
+            pass
+    return DEFAULT_CONFIG.copy()
+
+
+def save_config(config: dict):
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Async helpers
+# ---------------------------------------------------------------------------
+async def _fetch_json(session: aiohttp.ClientSession, url: str, **kwargs) -> dict | None:
+    timeout = aiohttp.ClientTimeout(total=kwargs.pop("timeout", 15))
+    try:
+        async with session.get(url, timeout=timeout, **kwargs) as resp:
+            if resp.status != 200:
+                return None
+            return await resp.json(content_type=None)
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return None
+
+
+async def _fetch_html(session: aiohttp.ClientSession, url: str, **kwargs) -> str | None:
+    timeout = aiohttp.ClientTimeout(total=kwargs.pop("timeout", 15))
+    try:
+        async with session.get(url, timeout=timeout, **kwargs) as resp:
+            if resp.status != 200:
+                return None
+            return await resp.text()
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return None
+
+
+async def _get_magnet(session: aiohttp.ClientSession, page_url: str) -> str | None:
+    html = await _fetch_html(session, page_url, timeout=15)
+    if not html:
+        return None
+    soup = BeautifulSoup(html, "html.parser")
+    for a in soup.find_all("a", href=True):
+        if a["href"].startswith("magnet:"):
+            return a["href"]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Torrent site scrapers
+# ---------------------------------------------------------------------------
+async def search_yts(query: str, max_results: int = 25) -> list[dict]:
+    async with aiohttp.ClientSession(headers=HEADERS, trust_env=True) as session:
+        for api_url in YTS_APIS:
+            params = {"query_term": query, "limit": max_results}
+            data = await _fetch_json(session, api_url, params=params)
+            if not data:
+                continue
+
+            results = []
+            movies = data.get("data", {}).get("movies") or []
+            for movie in movies:
+                title = movie.get("title_long") or movie.get("title", "")
+                year = movie.get("year", "")
+                for t in movie.get("torrents", []):
+                    hash_val = t.get("hash", "")
+                    if not hash_val:
+                        continue
+                    quality = t.get("quality", "?")
+                    seeds = t.get("seeds", 0)
+                    size = t.get("size", "?")
+                    magnet = f"magnet:?xt=urn:btih:{hash_val}&dn={urllib.parse.quote(title + ' ' + quality)}"
+                    name = f"{title} ({year}) {quality} [{size}]"
+                    poster = movie.get("large_cover_image") or movie.get("medium_cover_image") or ""
+                    results.append({
+                        "name": name, "seeds": int(seeds or 0), "size": size,
+                        "magnet": magnet, "source": "YTS", "poster": poster,
+                    })
+                    if len(results) >= max_results: break
+                if len(results) >= max_results: break
+            if results: return results
+    return []
+
+
+async def search_eztv(query: str, max_results: int = 25) -> list[dict]:
+    async with aiohttp.ClientSession(headers=HEADERS, trust_env=True) as session:
+        for api_url in EZTV_APIS:
+            params = {"keywords": query, "limit": max_results}
+            data = await _fetch_json(session, api_url, params=params)
+            if not data: continue
+
+            results = []
+            torrents = data.get("torrents") or []
+            for t in torrents[:max_results]:
+                title = t.get("title", "")
+                magnet = t.get("magnet_url", "")
+                if not magnet: continue
+                seeds = t.get("seeds", 0)
+                size_bytes = t.get("size_bytes", 0)
+                try:
+                    size = _format_size(int(size_bytes)) if size_bytes else "?"
+                except (ValueError, TypeError):
+                    size = str(size_bytes) if size_bytes else "?"
+                results.append({
+                    "name": title, "seeds": int(seeds or 0), "size": size,
+                    "magnet": magnet, "source": "EZTV", "poster": "",
+                })
+            if results: return results
+    return []
+
+
+async def search_limetorrents(query: str, max_results: int = 25) -> list[dict]:
+    async with aiohttp.ClientSession(headers=HEADERS, trust_env=True) as session:
+        for mirror in LT_MIRRORS:
+            url = f"{mirror}/search/all/{urllib.parse.quote(query)}/seeds/1/"
+            html = await _fetch_html(session, url, timeout=20)
+            if not html: continue
+
+            soup = BeautifulSoup(html, "html.parser")
+            results = []
+            rows = soup.select("table.table2 tbody tr")
+
+            for row in rows:
+                if len(results) >= max_results: break
+                name_el = row.select_one("td.tdleft a:nth-of-type(2)") or row.select_one("td a")
+                if not name_el: continue
+                name = name_el.get_text(strip=True)
+                if not name or len(name) < 5: continue
+
+                seed_el = row.select_one("td.tdseed")
+                seeds_text = seed_el.get_text(strip=True) if seed_el else "0"
+                size_el = row.select_one("td.tdsize")
+                size = size_el.get_text(strip=True) if size_el else "?"
+
+                magnet = None
+                for a in row.find_all("a", href=True):
+                    if a["href"].startswith("magnet:"):
+                        magnet = a["href"]
+                        break
+
+                if not magnet:
+                    href = name_el.get("href", "")
+                    if href:
+                        detail_url = href if href.startswith("http") else mirror + href
+                        magnet = await _get_magnet(session, detail_url)
+
+                if not magnet: continue
+                results.append({
+                    "name": name, "seeds": int(re.sub(r"[^\d]", "", seeds_text) or 0),
+                    "size": size, "magnet": magnet, "source": "LimeTorrents", "poster": "",
+                })
+            if results: return results
+    return []
+
+
+async def search_rarbg(query: str, max_results: int = 25) -> list[dict]:
+    async with aiohttp.ClientSession(headers=HEADERS, trust_env=True) as session:
+        for mirror in RARBG_MIRRORS:
+            url = f"{mirror}/search/?search={urllib.parse.quote(query)}"
+            html = await _fetch_html(session, url, timeout=20)
+            if not html: continue
+
+            soup = BeautifulSoup(html, "html.parser")
+            results = []
+            rows = soup.select("table.lista2t tbody tr.lista2") or soup.select("table.lista2t tr")
+
+            for row in rows:
+                if len(results) >= max_results: break
+                name_el = row.select_one("a") or row.select_one("td:nth-child(2) a")
+                if not name_el: continue
+                name = name_el.get_text(strip=True)
+                if not name or len(name) < 3: continue
+
+                seed_el = row.select_one("td:nth-child(5)") or row.select_one("font")
+                seeds_text = seed_el.get_text(strip=True) if seed_el else "0"
+                size_el = row.select_one("td:nth-child(4)") or row.select_one("td.size")
+                size = size_el.get_text(strip=True) if size_el else "?"
+
+                magnet = None
+                for a in row.find_all("a", href=True):
+                    if a["href"].startswith("magnet:"):
+                        magnet = a["href"]
+                        break
+
+                if not magnet:
+                    href = name_el.get("href", "")
+                    if href:
+                        detail_url = href if href.startswith("http") else mirror + href
+                        magnet = await _get_magnet(session, detail_url)
+
+                if not magnet: continue
+                results.append({
+                    "name": name, "seeds": int(re.sub(r"[^\d]", "", seeds_text) or 0),
+                    "size": size, "magnet": magnet, "source": "RARBG", "poster": "",
+                })
+            if results: return results
+    return []
+
+
+async def search_piratebay(query: str, max_results: int = 25) -> list[dict]:
+    url = f"https://apibay.org/q.php?q={urllib.parse.quote(query)}"
+    async with aiohttp.ClientSession(headers=HEADERS, trust_env=True) as session:
+        data = await _fetch_json(session, url)
+        if not data: return []
+
+        results = []
+        for item in data[:max_results]:
+            if item.get("info_hash"):
+                name = item.get("name", "Unknown")
+                seeds = int(item.get("seeders", 0))
+                size_bytes = int(item.get("size", 0))
+                size = _format_size(size_bytes)
+                magnet = f"magnet:?xt=urn:btih:{item['info_hash']}&dn={urllib.parse.quote(name)}"
+                results.append({
+                    "name": name, "seeds": seeds, "size": size,
+                    "magnet": magnet, "source": "TPB", "poster": "",
+                })
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _format_size(size_bytes: int) -> str:
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} PB"
+
+
+def filter_quality(results: list[dict], quality: str) -> list[dict]:
+    if not quality: return results
+    quality_lower = quality.lower()
+    matching = [r for r in results if quality_lower in r["name"].lower()]
+    return matching if matching else results
+
+
+def sort_results(results: list[dict], sort_by: str) -> list[dict]:
+    if sort_by == "seeds":
+        return sorted(results, key=lambda r: r["seeds"], reverse=True)
+    elif sort_by == "name":
+        return sorted(results, key=lambda r: r["name"].lower())
+    elif sort_by == "size":
+        return sorted(results, key=lambda r: _parse_size(r["size"]), reverse=True)
+    return results
+
+
+def _parse_size(size_str: str) -> float:
+    match = re.match(r"([\d.]+)\s*(B|KB|MB|GB|TB)?", size_str, re.I)
+    if not match: return 0
+    val = float(match.group(1))
+    unit = (match.group(2) or "B").upper()
+    multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    return val * multipliers.get(unit, 1)
+
+
+# ---------------------------------------------------------------------------
+# Previewer Detection
+# ---------------------------------------------------------------------------
+def _supports_sixel() -> bool:
+    if os.environ.get("TERM") in ["mlterm", "yaft-256color"]: return True
+    if "sixel" in os.environ.get("TERM", "").lower(): return True
+
+    try:
+        if not sys.stdout.isatty(): return False
+        fd = sys.stdout.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            sys.stdout.write("\033[c")
+            sys.stdout.flush()
+            rlist, _, _ = select.select([fd], [], [], 0.1)
+            if rlist:
+                resp = os.read(fd, 1024).decode(errors="ignore")
+                if "4" in resp.strip("\x1b[?").rstrip("c").split(";"):
+                    return True
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    except Exception:
+        pass
+    return False
+
+
+def get_preview_cmd() -> str | None:
+    term = os.environ.get("TERM", "")
+    term_program = os.environ.get("TERM_PROGRAM", "").lower()
+
+    # 1. Kitty
+    if term == "xterm-kitty" or term_program == "kitty":
+        if shutil.which("kitty") or shutil.which("chafa"):
+            return "kitty-icat"
+            
+    # 2. Sixel (pure sixel via img2sixel or magick)
+    if _supports_sixel():
+        if shutil.which("img2sixel") or shutil.which("magick") or shutil.which("convert") or shutil.which("chafa"):
+            return "sixel"
+            
+    # 3. Ueberzugpp
+    if shutil.which("ueberzugpp"):
+        return "ueberzugpp"
+        
+    # 4. Chafa
+    if shutil.which("chafa"):
+        return "chafa"
+        
+    return None
+
+PREVIEW_CMD = get_preview_cmd()
+
+
+# ---------------------------------------------------------------------------
+# Ueberzugpp Daemon Management
+# ---------------------------------------------------------------------------
+def _kill_ueberzugpp_daemon(proc, pid_path: str):
+    stale_pid = None
+    if os.path.exists(pid_path):
+        try:
+            with open(pid_path) as f:
+                stale_pid = int(f.read().strip())
+        except (ValueError, OSError):
+            pass
+
+    socket_path = f"/tmp/ueberzugpp-{stale_pid}.socket" if stale_pid else None
+
+    if socket_path and os.path.exists(socket_path):
+        try:
+            subprocess.run(
+                ["ueberzugpp", "cmd", f"--socket={socket_path}",
+                 "--identifier=torrent-mpv-poster", "--action=remove"],
+                timeout=2, capture_output=True,
+            )
+        except Exception:
+            pass
+
+    pids = set()
+    if proc: pids.add(proc.pid)
+    if stale_pid: pids.add(stale_pid)
+
+    for pid in pids:
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError, OSError):
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
+
+    if proc:
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+
+    for pid in pids:
+        try:
+            os.kill(pid, 0)
+        except (ProcessLookupError, OSError):
+            continue
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except (ProcessLookupError, OSError):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
+
+    if proc:
+        try:
+            proc.wait(timeout=1)
+        except Exception:
+            pass
+
+    if socket_path:
+        try: os.unlink(socket_path)
+        except OSError: pass
+    try: os.unlink(pid_path)
+    except OSError: pass
+
+
+# ---------------------------------------------------------------------------
+# Background Image Pre-fetching
+# ---------------------------------------------------------------------------
+def _prefetch_posters_background(results: list[dict]):
+    import urllib.request
+    cache_dir = Path(tempfile.gettempdir()) / "torrent-mpv" / "posters"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    
+    urls = {r.get("poster") for r in results if r.get("poster")}
+    
+    def _download_worker(url: str):
+        filename = hashlib.md5(url.encode()).hexdigest() + ".jpg"
+        filepath = cache_dir / filename
+        if filepath.exists() and filepath.stat().st_size > 100:
+            return
+        try:
+            req = urllib.request.Request(url, headers=HEADERS)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = resp.read()
+                if len(data) > 100:
+                    with open(filepath, "wb") as f:
+                        f.write(data)
+        except Exception:
+            pass
+
+    for url in urls:
+        t = threading.Thread(target=_download_worker, args=(url,), daemon=True)
+        t.start()
+
+
+# ---------------------------------------------------------------------------
+# Selection UI (fzf)
+# ---------------------------------------------------------------------------
+def select_with_fzf(results: list[dict]) -> dict | None:
+    if not results:
+        return None
+
+    lines = []
+    for i, r in enumerate(results):
+        seed_str = f"{r['seeds']:>5d}"
+        size_str = f"{r['size']:>9s}"
+        name_str = r["name"][:90]
+        lines.append(f"{i:3d}\t{seed_str}\t{size_str}\t{name_str}")
+
+    results_file = os.path.join(TEMP_DIR, "results.json")
+    with open(results_file, "w") as f:
+        json.dump(results, f)
+
+    _prefetch_posters_background(results)
+
+    daemon_socket = None
+    daemon_proc = None
+    preview_script = SCRIPT_DIR / "torrent-mpv-preview"
+    pid_path = str(TEMP_DIR / "ueberzugpp.pid")
+
+    if PREVIEW_CMD == "ueberzugpp" and preview_script.exists():
+        _kill_ueberzugpp_daemon(None, pid_path)
+
+        daemon_proc = subprocess.Popen(
+            ["ueberzugpp", "layer", "--no-stdin", "--silent", f"--pid-file={pid_path}"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+        for _ in range(40):
+            time.sleep(0.05)
+            if os.path.exists(pid_path):
+                try:
+                    with open(pid_path) as pf:
+                        daemon_pid = int(pf.read().strip())
+                    socket_path = f"/tmp/ueberzugpp-{daemon_pid}.socket"
+                    if os.path.exists(socket_path):
+                        daemon_socket = socket_path
+                        break
+                except (ValueError, OSError):
+                    pass
+
+        if not daemon_socket:
+            _kill_ueberzugpp_daemon(daemon_proc, pid_path)
+            daemon_proc = None
+
+    fzf_cmd = [
+        "fzf", "--height=70%", "--reverse",
+        "--header=↑↓ navigate · enter to stream · q/esc to cancel",
+        "--with-nth=2..", "--delimiter=\t",
+    ]
+
+    if PREVIEW_CMD and preview_script.exists():
+        socket_arg = daemon_socket if PREVIEW_CMD == "ueberzugpp" else "none"
+        fzf_cmd += [
+            "--preview", f"{sys.executable} {preview_script} {{n}} {PREVIEW_CMD} {socket_arg}",
+            "--preview-window=right:22%:wrap",
+        ]
+
+    proc = None
+    try:
+        proc = subprocess.run(
+            fzf_cmd, input="\n".join(lines), capture_output=True, text=True,
+        )
+    finally:
+        if daemon_proc:
+            _kill_ueberzugpp_daemon(daemon_proc, pid_path)
+        if PREVIEW_CMD == "kitty-icat":
+            sys.stdout.write("\033_Ga=d;\033\\")
+            sys.stdout.flush()
+
+
+    if proc is None or proc.returncode != 0:
+        return None
+
+    selected = proc.stdout.strip()
+    if not selected:
+        return None
+
+    idx_str = selected.split("\t")[0].strip()
+    try:
+        idx = int(idx_str)
+        return results[idx]
+    except (ValueError, IndexError):
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Streaming
+# ---------------------------------------------------------------------------
+def stream_with_peerflix(magnet: str, player: str = "mpv"):
+    cmd = ["peerflix", magnet, f"--{player}"]
+    print(f"\n▶ Launching: {' '.join(cmd)}", file=sys.stderr)
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError:
+        print("peerflix not found. Install with: npm install -g peerflix", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"peerflix exited with code {e.returncode}", file=sys.stderr)
+
+
+PUBLIC_TRACKERS = [
+    "udp://tracker.publictorrent.net:80/announce", "udp://tracker1.itzmx.com:8080/announce",
+    "udp://tracker.openbittorrent.com:80/announce", "udp://tracker2.dler.org:6969/announce",
+    "udp://tracker.dler.org:6969/announce", "udp://tracker3.dler.org:6969/announce",
+    "udp://51.15.41.46:6969/announce", "udp://185.171.202.111:6969/announce",
+    "udp://open.stealth.si:80/announce", "udp://193.34.92.5:80/announce",
+    "udp://tracker.corpscorp.online:80/announce", "udp://tracker.toss.li:6969/announce",
+    "udp://tracker.bittor.pw:2710/announce", "udp://tracker.fatkhoala.org:13780/announce",
+    "udp://tracker.ccc.de:80/announce", "udp://tracker4.dler.org:6969/announce",
+    "udp://tracker.swateam.org.uk:2710/announce", "udp://tracker.therarbg.to:6969/announce",
+    "udp://tracker.coppersurfer.tk:6969/announce", "udp://tracker.opentrackr.org:1337/announce",
+    "udp://open.tracker.cl:1337/announce", "udp://tracker.openbittorrent.com:6969/announce",
+    "udp://exodus.desync.com:6969/announce", "udp://ipv4.tracker.harry.lu:80/announce",
+    "udp://tracker.internetwarriors.net:1337/announce", "udp://open.demonii.com:1337/announce",
+    "udp://109.201.134.183:80/announce", "udp://89.234.156.205:451/announce",
+    "udp://132.226.6.145:6969/announce", "udp://tracker.torrent.eu.org:451/announce",
+    "udp://tracker.moeking.me:6969/announce", "udp://tracker1.bt.moack.co.kr:80/announce",
+    "udp://tracker.tiny-vps.com:6969/announce", "udp://tracker2.itzmx.com:6961/announce",
+    "udp://tracker3.itzmx.com:6961/announce", "udp://tracker4.itzmx.com:2710/announce",
+    "udp://tracker.anima.nz:6969/announce", "udp://explodie.org:6969/announce",
+    "udp://31.38.161.123:6969/announce", "udp://93.158.213.92:6969/announce",
+    "https://tracker.nanoha.org:443/announce", "https://tracker.lilithraws.cf:443/announce",
+    "https://tr.burnabyhighstar.com:443/announce", "https://tracker.gbitt.info:443/announce",
+    "http://tracker.openbittorrent.com:80/announce", "http://tracker.opentrackr.org:1337/announce",
+    "http://tracker.ipv6tracker.ru:80/announce", "http://opentracker.i2p.rocks:6969/announce",
+    "http://tracker.gbitt.info/announce", "http://tracker.fathammer.com:6969/announce",
+    "http://tracker.bittorrent.am/announce", "http://tracker.dler.org/announce",
+    "http://tracker.files.fm:6969/announce", "http://tracker.nartlof.com:6970/announce",
+    "http://tracker.seering.org/announce", "http://tracker.skyts.net/announce",
+    "http://tracker.t-vb.org/announce", "http://tracker.torrentyorg.pl/announce",
+    "http://tracker1.itzmx.com:8080/announce", "http://tracker2.itzmx.com:6961/announce",
+    "http://tracker3.itzmx.com:6961/announce", "http://tracker4.itzmx.com:2710/announce",
+    "http://open.acgnxtracker.com/announce", "http://open.tracker.cl/announce",
+    "http://open.trackerlist.xyz/announce", "http://share.camoe.cn:8080/announce",
+    "http://t.publictracker.xyz:6969/announce", "http://torrent.tracker.durukanbalci.com:80/announce",
+    "http://tracker.ez.tv/announce", "http://tracker.k.vu:6969/announce",
+    "http://tracker.tfile.co/announce", "http://tracker.tfile.me/announce",
+    "wss://tracker.btorrent.xyz", "wss://tracker.openwebtorrent.com",
+    "wss://tracker.fastcast.nz", "wss://qbt-tracker.mrkaran.workers.dev",
+    "wss://spacetradersapi-chatbox.herokuapp.com/announce",
+]
+
+def add_trackers(magnet: str) -> str:
+    existing = magnet.count("&tr=")
+    if existing >= 3: return magnet
+    tracker_str = "".join(f"&tr={urllib.parse.quote(t)}" for t in PUBLIC_TRACKERS)
+    return magnet + tracker_str
+
+
+def stream_magnet(magnet: str, player: str = "mpv"):
+    import socket as _socket
+    magnet = add_trackers(magnet)
+
+    subprocess.run(["pkill", "-f", "peerflix"], capture_output=True)
+    time.sleep(0.5)
+
+    print(f"\n▶ Starting stream...", file=sys.stderr)
+    peerflix_proc = subprocess.Popen(
+        ["peerflix", magnet, "--port", "8888"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+    stream_url = "http://localhost:8888/"
+    print("   Buffering...", file=sys.stderr)
+    for i in range(120):
+        time.sleep(1)
+        try:
+            sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            sock.settimeout(2)
+            result = sock.connect_ex(("127.0.0.1", 8888))
+            sock.close()
+            if result == 0:
+                print(f"   Stream ready ({i+1}s)", file=sys.stderr)
+                break
+        except Exception:
+            pass
+    else:
+        print("   Stream failed to start.", file=sys.stderr)
+        peerflix_proc.kill()
+        sys.exit(1)
+
+    mpv_cmd = [player, "--force-window=immediate", stream_url]
+    print(f"▶ {' '.join(mpv_cmd)}", file=sys.stderr)
+    try:
+        subprocess.run(mpv_cmd, check=True)
+    except FileNotFoundError:
+        print(f"{player} not found in PATH.", file=sys.stderr)
+    except subprocess.CalledProcessError as e:
+        print(f"{player} exited with code {e.returncode}", file=sys.stderr)
+    finally:
+        peerflix_proc.kill()
+
+
+# ---------------------------------------------------------------------------
+# Async search orchestrator
+# ---------------------------------------------------------------------------
+async def search_all(query: str, sites: list[str], max_results: int) -> list[dict]:
+    search_map = {
+        "yts": search_yts, "eztv": search_eztv, "tpb": search_piratebay,
+        "limetorrents": search_limetorrents, "rarbg": search_rarbg,
+    }
+
+    tasks = []
+    site_labels = []
+    for site in sites:
+        if site in search_map:
+            tasks.append(search_map[site](query, max_results))
+            site_labels.append(site.upper())
+
+    print(f"   Querying {', '.join(site_labels)} (parallel)...", file=sys.stderr)
+    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    all_results = []
+    seen_magnets = set()
+    for result_set in raw_results:
+        if isinstance(result_set, Exception): continue
+        for r in result_set:
+            info_hash = r["magnet"].split("btih:")[1][:40] if "btih:" in r["magnet"] else r["magnet"]
+            if info_hash not in seen_magnets:
+                seen_magnets.add(info_hash)
+                all_results.append(r)
+
+    return all_results
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main():
+    args = sys.argv[1:]
+
+    if not args or args[0] in ("-h", "--help"):
+        print(__doc__)
+        sys.exit(0)
+
+    if args[0] == "--config":
+        config = load_config()
+        print(json.dumps(config, indent=2))
+        sys.exit(0)
+
+    config = load_config()
+
+    query_parts = []
+    quality_override = None
+    i = 0
+    while i < len(args):
+        if args[i] == "--quality" and i + 1 < len(args):
+            quality_override = args[i + 1]
+            i += 2
+        elif args[i].startswith("--q="):
+            quality_override = args[i].split("=", 1)[1]
+            i += 1
+        else:
+            query_parts.append(args[i])
+            i += 1
+
+    query = " ".join(query_parts)
+    if not query:
+        print("Usage: torrent-mpv <search query>", file=sys.stderr)
+        sys.exit(1)
+
+    quality = quality_override or config.get("preferred_quality", "")
+    max_results = config.get("max_results", 25)
+    min_seeds = config.get("min_seeds", 0)
+    sites = config.get("sites", ["yts", "eztv", "tpb", "limetorrents", "rarbg"])
+    sort_by = config.get("sort_by", "seeds")
+
+    print(f"⚡ Searching for: {query}", file=sys.stderr)
+    if quality:
+        print(f"   Quality filter: {quality}", file=sys.stderr)
+
+    all_results = asyncio.run(search_all(query, sites, max_results))
+
+    all_results = [r for r in all_results if r["seeds"] >= min_seeds]
+    all_results = filter_quality(all_results, quality)
+    all_results = sort_results(all_results, sort_by)[:max_results]
+
+    if not all_results:
+        print("No results found. Try a different query or lower min_seeds.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"   Found {len(all_results)} results\n", file=sys.stderr)
+    selected = select_with_fzf(all_results)
+
+    if not selected:
+        print("Cancelled.", file=sys.stderr)
+        sys.exit(0)
+
+    print(f"\n✓ Selected: {selected['name']}", file=sys.stderr)
+    print(f"  Seeds: {selected['seeds']}  Size: {selected['size']}", file=sys.stderr)
+
+    player = config.get("player", "mpv")
+    stream_magnet(selected["magnet"], player)
+
+
+if __name__ == "__main__":
+    main()
