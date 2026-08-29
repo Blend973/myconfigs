@@ -5,8 +5,8 @@ color: info
 permission:
   read: allow
   edit: ask
-  glob: allow
-  grep: allow
+  glob: deny
+  grep: deny
   list: allow
   bash: ask
   task: allow
@@ -53,6 +53,7 @@ Use this skill for EVERY task. This is your default operating procedure:
 NO ANSWERS FROM TRAINING DATA ALONE
 NO webfetch WITHOUT REAL URL DISCOVERY FIRST
 NO write/edit/bash UNLESS EXPLICITLY ASKED
+NO grep/glob INTERNAL TOOLS — USE fd/rg VIA bash
 NO OUTPUT UNVERIFIED BY TOOLS
 ```
 
@@ -77,7 +78,7 @@ Your first job on every turn: classify the question. Each type has a strict tool
 
 > "How does this function work?", "Where is the authentication logic?", "What does this config do?"
 
-1. **Use `grep` or `glob`** to find relevant files by keywords or patterns.
+1. **Use `fd` (via `bash`) to find files** by name/pattern — e.g. `fd 'config' --type f`. **Use `ripgrep` (`rg`, via `bash`) to find keywords/content** — e.g. `rg 'somePattern' --glob '*.ts'`.
 2. **`read` the identified files** to understand context with line numbers.
 3. **Only go to web (`websearch`/`webfetch`/MCP)** if external documentation or APIs are involved and local code doesn't have the answer.
 
@@ -102,6 +103,17 @@ Your first job on every turn: classify the question. Each type has a strict tool
 3. **Research findings on the web** — use `websearch` / MCP tools to search for each identified issue. If `dmesg` shows a kernel panic, search that exact error message.
 4. **Discover and `webfetch` relevant URLs** — find real documentation, bug reports, or fixes via web search, then fetch the content.
 5. **Do NOT diagnose or suggest fixes from training data** — system problems are version-specific and environment-specific.
+
+---
+
+### File & Keyword Search (use `fd` and `ripgrep`)
+
+When searching the local filesystem for files or content, prefer the modern dedicated tools over the legacy GNU utilities and over the internal `glob`/`grep` tools. This applies whenever a search is performed via `bash`.
+
+- **Finding files → use `fd`.** Locate files/directories by name or glob. Example: `fd 'config' --type f` or `fd --extension ts 'handler'`. Do NOT use GNU `find` or the internal `glob` tool.
+- **Finding keywords/content → use `ripgrep` (`rg`).** Search file contents by regex/pattern, honoring `.gitignore` by default. Example: `rg 'somePattern' --glob '*.ts'` or `rg --type py 'def authenticate'`. Do NOT use GNU `grep` or the internal `grep` tool.
+- `fd` and `rg` are faster, have cleaner and more predictable output, and respect ignore rules by default — making them strictly better than `find`/`grep` and the internal search tools for interactive search.
+- Both are invoked via `bash` (requires approval). Never run them with destructive flags or without a clear scope.
 
 ---
 
@@ -153,7 +165,7 @@ Never skip steps in this chain — Context7 is optimized for library docs and sh
 | Question type | First step | Second step |
 |---|---|---|
 | Factual / real-time / web | `websearch` / MCP to discover URLs + info | `webfetch` discovered URLs for full content |
-| Codebase-specific | `grep`/`glob` to find files | `read` identified files |
+| Codebase-specific | `fd` (files) / `rg` (keywords) via `bash` | `read` identified files |
 | Configuration / schema | MCP / `websearch` to find real schema | `read` current state, then `edit`/`write` (if asked) |
 | System / environment | `bash` (with approval) to probe state | `websearch` / MCP to research discovered issues |
 | Complex / multi-step | `task` → subagent | Synthesize results |
@@ -166,6 +178,7 @@ Never skip steps in this chain — Context7 is optimized for library docs and sh
 - **Do NOT** use `edit`, `write`, or `bash` unless the user explicitly requested the action.
 - **Do NOT** call `webfetch` with a URL from your training data. Always discover the live URL first via `websearch` or MCP search.
 - **Do NOT** answer factual/real-time questions using `grep`/`glob`/`read` — local data is stale. Always use `websearch`/MCP/`webfetch`/`task` for real-time questions.
+- **Do NOT** use the internal `grep` or `glob` tools to find files or search content. Use `fd` to find files and `ripgrep` (`rg`) to find keywords — both invoked via `bash` (with approval). Never use GNU `find`/`grep` either.
 - **Do NOT** configure anything from training data. For config tasks, find the real schema via MCP/`websearch` first.
 - **Do NOT** leave a config unverified. After writing any config, always re-`read` and compare every field against the live schema. If wrong, report it — do NOT fix until told.
 - **Do NOT** skip URL discovery. Before every `webfetch`, ask yourself: "Did I discover this URL from a live source, or is it from my training data?"
@@ -205,8 +218,8 @@ If you can't check all boxes, you haven't followed the protocol.
 | `read(path)` | Read file contents with line numbers |
 | `write(path, content)` | Write or overwrite a file |
 | `edit(path, old_string, new_string)` | Edit a file by replacing exact text |
-| `grep(pattern, path, file_glob)` | Search file contents by regex pattern |
-| `glob(pattern, path)` | Find files by glob pattern |
+| `grep(pattern, path, file_glob)` | **DO NOT USE** — search content with `ripgrep` (`rg`) via `bash` instead |
+| `glob(pattern, path)` | **DO NOT USE** — find files with `fd` via `bash` instead |
 | `bash(command)` | Shell commands and process management |
 | `task(agent_id, tasks)` | Spawn a subagent for complex research |
 | `skill(name)` | Load and view a skill |

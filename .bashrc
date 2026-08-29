@@ -1,7 +1,7 @@
 # Added by ForgeCode installer
+export PATH="/home/user/.local/bin:$PATH"
 case ":$PATH:" in
     *":/home/user/.local/bin:"*) ;;
-    *) export PATH="/home/user/.local/bin:$PATH" ;;
 esac
 #
 # ~/.bashrc
@@ -12,6 +12,9 @@ esac
 
 # Auto-cd into directories
 shopt -s autocd
+shopt -s extglob
+shopt -s globstar
+shopt -s nullglob
 
 # Suppress autocd output (cd -- dir/)
 exec {BASH_XTRACEFD}>/dev/null
@@ -77,19 +80,71 @@ alias rip="expac --timefmt='%Y-%m-%d %T' '%l\t%n %v' | sort | tail -200 | nl"
 
 # Search functions
 pe() {
-    sudo plocate --regexp --basename "^$1$"
+    sudo plocate -br "^$1$" "${@:2}"
 }
 
 pa() {
-    sudo plocate --regexp --basename "$1"
+    sudo plocate -b "$1" "${@:2}"
+}
+
+plrm() {
+  if [[ -z ${1:-} ]]; then
+    echo "Usage: plrm <filename> [plocate-opts...]" >&2
+    return 1
+  fi
+  local needle=$1
+  shift
+
+  local matches
+  mapfile -t matches < <(sudo plocate -br "^${needle}$" "$@")
+
+  if ((${#matches[@]} == 0)); then
+    echo "No matches found for: $needle"
+    return 1
+  fi
+
+  printf 'Matches:\n'
+  printf '  %s\n' "${matches[@]}"
+
+  local answer
+  read -r -p "Run sudo rm -rf on these results? [y/N] " answer
+  [[ $answer == [yY] || $answer == [yY][eE][sS] ]] || return 0
+
+  printf '%s\0' "${matches[@]}" | xargs -0 sudo rm -rf --
+}
+
+flrm() {
+  if [[ -z ${1:-} ]]; then
+    echo "Usage: flrm <filename> [fd-opts...]" >&2
+    return 1
+  fi
+  local needle=$1
+  shift
+
+  local matches
+  mapfile -t matches < <(sudo fd -u "^${needle}$" "$@")
+
+  if ((${#matches[@]} == 0)); then
+    echo "No matches found for: $needle"
+    return 1
+  fi
+
+  printf 'Matches:\n'
+  printf '  %s\n' "${matches[@]}"
+
+  local answer
+  read -r -p "Run sudo rm -rf on these results? [y/N] " answer
+  [[ $answer == [yY] || $answer == [yY][eE][sS] ]] || return 0
+
+  sudo fd -u "^${needle}$" "$@" -X sudo rm -rf {}
 }
 
 fa() {
-    sudo fd -u "$1" /
+    sudo fd -u "$1" "${@:2}"
 }
 
-fb() {
-    sudo fd -u "^$1$" /
+fe() {
+    sudo fd -u "^$1$" "${@:2}"
 }
 
 # Git-aware prompt with nerd symbols
