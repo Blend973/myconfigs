@@ -1,7 +1,7 @@
 # Added by ForgeCode installer
-export PATH="/home/user/.local/bin:$PATH"
 case ":$PATH:" in
-    *":/home/user/.local/bin:"*) ;;
+*":/home/user/.local/bin:"*) ;;
+*) export PATH="/home/user/.local/bin:$PATH" ;;
 esac
 #
 # ~/.bashrc
@@ -26,6 +26,7 @@ bind '"\e[B": history-search-forward'
 # History settings
 HISTSIZE=10000
 HISTFILESIZE=10000
+export HISTCONTROL=erasedups
 
 # Ctrl+Backspace deletes backward (multiple common sequences)
 bind '"\C-H": backward-kill-word'
@@ -48,19 +49,19 @@ alias fixpacman="sudo rm /var/lib/pacman/db.lck"
 alias tarnow='tar -acf '
 alias untar='tar -zxvf '
 alias wget='wget -c '
-alias psmem='ps auxf | sort -nr -k 4'
-alias psmem10='ps auxf | sort -nr -k 4 | head -10'
+# alias psmem='ps auxf | sort -nr -k 4'
+# alias psmem10='ps auxf | sort -nr -k 4 | head -10'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
 alias ......='cd ../../../../..'
-alias dir='dir --color=auto'
-alias vdir='vdir --color=auto'
-alias grep='grep --color=auto'
-alias fgrep='fgrep --color=auto'
-alias egrep='egrep --color=auto'
-alias hw='hwinfo --short'
+# alias dir='dir --color=auto'
+# alias vdir='vdir --color=auto'
+# alias grep='grep --color=auto'
+# alias fgrep='fgrep --color=auto'
+# alias egrep='egrep --color=auto'
+# alias hw='hwinfo --short'
 alias big="expac -H M '%m\t%n' | sort -h | nl"
 alias gitpkg='pacman -Q | grep -i "\-git" | wc -l'
 alias update='sudo pacman -Syyu'
@@ -73,18 +74,23 @@ alias check='pacman -Qs'
 alias cwm='nvim /opt/dwm-source/config.def.h'
 alias mwm='cd /opt/dwm-source/; sudo make clean install; cd'
 alias sc='sudo ./cleaner.sh'
-alias tb='nc termbin.com 9999'
-alias cleanup='sudo pacman -Rcsn $(pacman -Qtdq)'
-alias jctl="journalctl -p 3 -xb"
+alias pss='paru -Ss'
+alias pis='paru -S'
+alias paur='yay -Syua'
+alias pkg='paru -Gp'
+# alias tb='nc termbin.com 9999'
+# alias cleanup='sudo pacman -Rcsn $(pacman -Qtdq)'
+alias clean='sudo paccache -rk0'
+# alias jctl="journalctl -p 3 -xb"
 alias rip="expac --timefmt='%Y-%m-%d %T' '%l\t%n %v' | sort | tail -200 | nl"
 
 # Search functions
 pe() {
-    sudo plocate -br "^$1$" "${@:2}"
+  sudo plocate -br "^$1$" "${@:2}"
 }
 
 pa() {
-    sudo plocate -b "$1" "${@:2}"
+  sudo plocate -b "$1" "${@:2}"
 }
 
 plrm() {
@@ -140,20 +146,24 @@ flrm() {
 }
 
 fa() {
-    sudo fd -u "$1" "${@:2}"
+  sudo fd -u "$1" "${@:2}"
 }
 
 fe() {
-    sudo fd -u "^$1$" "${@:2}"
+  sudo fd -u "^$1$" "${@:2}"
 }
 
 # Git-aware prompt with nerd symbols
 __git_prompt() {
-    local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
-    if [ -n "$branch" ]; then
-        local dirty=$(git diff --quiet 2>/dev/null || echo " 󰦷 ")
-        printf " \e[1;36m\e[0m \e[1;33m%s%s" "$branch" "$dirty"
-    fi
+  local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+  if [ -n "$branch" ]; then
+    local dirty=$(git diff --quiet 2>/dev/null || echo " 󰦷 ")
+    printf " \e[1;36m\e[0m \e[1;33m%s%s" "$branch" "$dirty"
+  fi
 }
 
 PS1='\[\e[1;31m\]\u\[\e[38;5;120m\]@\[\e[1;34m\]\h\[\e[0m\] \[\e[1;35m\] \[\e[38;5;79m\]\w\[\e[33m\]$(__git_prompt)\[\e[0m\]\n\[\e[38;5;120m\]❯\[\e[0m\] '
+
+export FZF_CTRL_R_OPTS="--exact --no-sort --height=11 --style=minimal --reverse"
+eval "$(fzf --bash)"
+# eval "$(atuin init bash --disable-up-arrow)"
