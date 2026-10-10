@@ -153,16 +153,39 @@ fe() {
   sudo fd -u "^$1$" "${@:2}"
 }
 
-# Git-aware prompt with nerd symbols
+# # Git-aware prompt with nerd symbols
+# __git_prompt() {
+#   local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+#   if [ -n "$branch" ]; then
+#     local dirty=$(git diff --quiet 2>/dev/null || echo " 󰦷 ")
+#     printf " \e[1;36m\e[0m \e[1;33m%s%s" "$branch" "$dirty"
+#   fi
+# }
+
+# PS1='\[\e[1;31m\]\u\[\e[38;5;120m\]@\[\e[1;34m\]\h\[\e[0m\] \[\e[1;35m\] \[\e[38;5;79m\]\w\[\e[33m\]$(__git_prompt)\[\e[0m\]\n\[\e[38;5;120m\]❯\[\e[0m\] '
+
 __git_prompt() {
   local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
   if [ -n "$branch" ]; then
     local dirty=$(git diff --quiet 2>/dev/null || echo " 󰦷 ")
-    printf " \e[1;36m\e[0m \e[1;33m%s%s" "$branch" "$dirty"
+    # Cyan (00FFFF) for branch icon, Yellow (FFFF00) for branch name
+    printf " \e[38;2;0;255;255m\e[0m \e[38;2;255;255;0m%s%s" "$branch" "$dirty"
   fi
 }
 
-PS1='\[\e[1;31m\]\u\[\e[38;5;120m\]@\[\e[1;34m\]\h\[\e[0m\] \[\e[1;35m\] \[\e[38;5;79m\]\w\[\e[33m\]$(__git_prompt)\[\e[0m\]\n\[\e[38;5;120m\]❯\[\e[0m\] '
+# Prompt with 24-bit true color (RGB) escape sequences
+# Prompt with 24-bit true color (RGB) escape sequences
+# Format: \e[38;2;R;G;Bm for foreground, \e[48;2;R;G;Bm for background
+# Hex values converted to decimal:
+# Orange (FF8C00) -> 255,140,0
+# Light Violet (C8A2FF) -> 200,162,255
+# Teal (00CED1) -> 0,206,209
+# White (FFFFFF) -> 255,255,255
+# Green (5FFF5F) -> 95,255,95
+# Yellow (FFFF00) -> 255,255,0
+# Cyan (5FD7FF) -> 95,215,255
+
+PS1='\[\e[38;2;255;140;0m\]\u\[\e[38;2;200;162;255m\]@\[\e[38;2;0;206;209m\]\h\[\e[0m\] \[\e[38;2;255;255;255m\] \[\e[38;2;95;255;95m\]\w\[\e[0m\]$(__git_prompt)\n\[\e[38;2;95;215;255m\]❯\[\e[0m\] '
 
 export FZF_CTRL_R_OPTS="--exact --no-sort --height=11 --style=minimal --reverse"
 eval "$(fzf --bash)"
