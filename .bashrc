@@ -28,6 +28,10 @@ HISTSIZE=10000
 HISTFILESIZE=10000
 export HISTCONTROL=erasedups
 
+# Cross-session history sync
+shopt -s histappend
+PROMPT_COMMAND="history -a; history -c; history -r; $PROMPT_COMMAND"
+
 # Ctrl+Backspace deletes backward (multiple common sequences)
 bind '"\C-H": backward-kill-word'
 bind '"\e[3;5~": backward-kill-word'
@@ -78,6 +82,10 @@ alias pss='paru -Ss'
 alias pis='paru -S'
 alias paur='yay -Syua'
 alias pkg='paru -Gp'
+alias gi='git init'
+alias ga='git add .'
+alias gm="git commit -m 'new'"
+alias gp='git push'
 # alias tb='nc termbin.com 9999'
 # alias cleanup='sudo pacman -Rcsn $(pacman -Qtdq)'
 alias clean='sudo paccache -rk0'
@@ -187,6 +195,6 @@ __git_prompt() {
 
 PS1='\[\e[38;2;255;140;0m\]\u\[\e[38;2;200;162;255m\]@\[\e[38;2;0;206;209m\]\h\[\e[0m\] \[\e[38;2;255;255;255m\] \[\e[38;2;95;255;95m\]\w\[\e[0m\]$(__git_prompt)\n\[\e[38;2;95;215;255m\]❯\[\e[0m\] '
 
-export FZF_CTRL_R_OPTS="--exact --no-sort --height=11 --style=minimal --reverse"
+export FZF_DEFAULT_OPTS="--exact --no-sort --height=11 --style=minimal --reverse"
 eval "$(fzf --bash)"
 # eval "$(atuin init bash --disable-up-arrow)"
