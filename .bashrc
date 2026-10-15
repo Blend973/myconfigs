@@ -193,8 +193,7 @@ __git_prompt() {
 # Yellow (FFFF00) -> 255,255,0
 # Cyan (5FD7FF) -> 95,215,255
 
-PS1='\[\e[38;2;255;140;0m\]\u\[\e[38;2;200;162;255m\]@\[\e[38;2;0;206;209m\]\h\[\e[0m\] \[\e[38;2;255;255;255m\] \[\e[38;2;95;255;95m\]\w\[\e[0m\]$(__git_prompt)\n\[\e[38;2;95;215;255m\]❯\[\e[0m\] '
-
+PS1='\[\e[38;2;255;140;0m\]\u\[\e[38;2;200;162;255m\]@\[\e[38;2;0;206;209m\]\h\[\e[0m\] \[\e[38;2;255;182;193m\] \[\e[38;2;95;255;95m\]\w\[\e[0m\]$(__git_prompt)\n\[\e[38;2;95;215;255m\]❯\[\e[0m\] '
 export FZF_DEFAULT_OPTS="--exact --no-sort --height=11 --style=minimal --reverse"
 eval "$(fzf --bash)"
 # eval "$(atuin init bash --disable-up-arrow)"
